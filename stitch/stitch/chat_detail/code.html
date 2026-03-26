@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-primary": "#001c8e",
+              "on-surface-variant": "#aaaab7",
+              "secondary": "#ff6e85",
+              "outline": "#737580",
+              "on-secondary-container": "#fff6f5",
+              "surface-container-high": "#1c1f2b",
+              "on-background": "#f0f0fd",
+              "on-tertiary": "#3c0048",
+              "primary-fixed": "#8999ff",
+              "on-primary-container": "#001470",
+              "surface-container": "#171924",
+              "error-dim": "#d73357",
+              "on-secondary": "#480014",
+              "secondary-dim": "#e70052",
+              "surface": "#0c0e17",
+              "surface-container-highest": "#222532",
+              "surface-container-low": "#11131d",
+              "primary": "#9ba8ff",
+              "error-container": "#a70138",
+              "surface-bright": "#282b3a",
+              "outline-variant": "#464752",
+              "background": "#0c0e17",
+              "inverse-on-surface": "#53545f",
+              "inverse-primary": "#2949ef",
+              "secondary-fixed-dim": "#ffaeb6",
+              "error": "#ff6e84",
+              "on-error-container": "#ffb2b9",
+              "surface-container-lowest": "#000000",
+              "tertiary-dim": "#c500e6",
+              "on-tertiary-container": "#000000",
+              "surface-dim": "#0c0e17",
+              "surface-variant": "#222532",
+              "tertiary-fixed": "#f189ff",
+              "surface-tint": "#9ba8ff",
+              "on-surface": "#f0f0fd",
+              "on-secondary-fixed-variant": "#a40037",
+              "on-secondary-fixed": "#6e0022",
+              "tertiary-fixed-dim": "#eb71ff",
+              "inverse-surface": "#faf8ff",
+              "secondary-fixed": "#ffc2c7",
+              "primary-dim": "#4963ff",
+              "on-tertiary-fixed-variant": "#650077",
+              "primary-fixed-dim": "#778aff",
+              "on-primary-fixed-variant": "#001a88",
+              "secondary-container": "#bd0041",
+              "tertiary": "#e966ff",
+              "on-error": "#490013",
+              "on-primary-fixed": "#000000",
+              "tertiary-container": "#d501f9",
+              "on-tertiary-fixed": "#2f0039",
+              "primary-container": "#8999ff"
+            },
+            fontFamily: {
+              "headline": ["Plus Jakarta Sans"],
+              "body": ["Manrope"],
+              "label": ["Manrope"]
+            },
+            borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .snap-gradient {
+            background: linear-gradient(135deg, #4963ff 0%, #c500e6 100%);
+        }
+        body {
+            background-color: #0c0e17;
+            color: #f0f0fd;
+            font-family: 'Manrope', sans-serif;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="flex flex-col h-screen overflow-hidden">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-[#0c0e17]/60 backdrop-blur-xl shadow-[0_8px_32px_rgba(155,168,255,0.08)] flex justify-between items-center px-6 py-4 w-full">
+<div class="flex items-center gap-4">
+<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-surface-container-highest transition-colors active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-[#9ba8ff]">arrow_back</span>
+</button>
+<div class="flex items-center gap-3">
+<div class="relative">
+<img alt="User Profile" class="w-10 h-10 rounded-full object-cover border-2 border-primary/20" data-alt="close up portrait of a stylish young woman with neon rim lighting in a dark futuristic setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB7pIfvseSPLRyE7sQ0hfZeL-pHEfH-GXtjwMxx607xdnoRxE681PG2-J079ikmgb5TyHUinLcHMlHlEkdhLMWy3mTeobcw7EgNPPZIWeSmFu89acOxkhQ0ttYSYIr3vZvjIKDNbIXU7OmeYHOLZWAyD4G6srwHCTKlSVVgootrKbJuk_FPGBmLkm2PCawoXa8AH2PlODwbJx0ZgHoYwZdcDQoc477wD-4OgON06bTG83fp3sPWSldBR6ILDsu08qhv4CuLcOJcDVI"/>
+<div class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-surface shadow-sm"></div>
+</div>
+<div>
+<h1 class="font-headline text-lg font-bold tracking-tight text-[#9ba8ff]">Elena Vance</h1>
+<p class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">Active Now</p>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="w-10 h-10 flex items-center justify-center rounded-full text-slate-400 hover:text-[#9ba8ff] transition-all active:scale-90">
+<span class="material-symbols-outlined">call</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-full text-slate-400 hover:text-[#9ba8ff] transition-all active:scale-90">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 overflow-y-auto px-6 pt-24 pb-32 space-y-8 scroll-smooth">
+<!-- Timestamp -->
+<div class="flex justify-center">
+<span class="bg-surface-container-low px-4 py-1 rounded-full text-[10px] font-label uppercase tracking-widest text-on-surface-variant">Today 10:24 AM</span>
+</div>
+<!-- Received Message -->
+<div class="flex flex-col items-start max-w-[85%] group">
+<div class="bg-surface-container-highest text-on-surface px-5 py-3 rounded-2xl rounded-tl-none shadow-sm leading-relaxed text-sm">
+                Hey! Are you coming to the gallery opening tonight? I heard the new digital exhibition is insane. ✨
+            </div>
+<span class="mt-2 ml-1 text-[10px] font-label text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">10:25 AM</span>
+</div>
+<!-- Sent Message -->
+<div class="flex flex-col items-end max-w-[85%] ml-auto group">
+<div class="snap-gradient text-white px-5 py-3 rounded-2xl rounded-tr-none shadow-[0_4px_20px_rgba(73,99,255,0.2)] leading-relaxed text-sm">
+                Absolutely! Just finishing up some work. What time does it start?
+            </div>
+<div class="mt-2 mr-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="text-[10px] font-label text-on-surface-variant">10:27 AM</span>
+<span class="material-symbols-outlined text-[12px] text-primary" style="font-variation-settings: 'FILL' 1;">done_all</span>
+</div>
+</div>
+<!-- Received Snap (Interactive Placeholder) -->
+<div class="flex flex-col items-start w-full max-w-[280px]">
+<div class="w-full bg-surface-container-low border border-outline-variant/15 rounded-xl p-4 flex items-center gap-4 cursor-pointer hover:bg-surface-container-high transition-colors active:scale-[0.98]">
+<div class="w-12 h-12 flex items-center justify-center rounded-xl bg-gradient-to-br from-tertiary to-secondary shadow-lg">
+<span class="material-symbols-outlined text-white text-2xl" style="font-variation-settings: 'FILL' 1;">photo_camera</span>
+</div>
+<div class="flex-1">
+<p class="font-headline font-bold text-sm text-on-surface">New Snap</p>
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-sm">timer</span>
+<span class="font-label text-[11px] uppercase tracking-tighter">10s • Tap to view</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Sent Image Message -->
+<div class="flex flex-col items-end w-full max-w-[85%] ml-auto">
+<div class="relative rounded-2xl overflow-hidden shadow-2xl border border-outline-variant/10 group">
+<img alt="Sent Art" class="w-full max-h-[300px] object-cover rounded-2xl" data-alt="abstract vibrant light painting with streaks of blue, purple and pink in a dark gallery space" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCBAcTwxRKLPMR88rsgxEV6du-KYda-4YTahWJR2WcXaykbt9P6mvlESo-VOQz-agi0awdlcBI1sCLwq7P96Z_7J1bca42xrVg05Dtq96lvt-MJP2_K6QC_t5Iq1TuwnYScCGvMY9Qc6l0j8plDkMoDGFK4Wq21VvkrBnSGUsmUM-vbjo9op7EiCfi32PhJhCDhDXF8aIuundk2hg1g480XSiowBQtIKJ1YYSCq0NxMknGl5KtQaL2divoeXWr01gxMrDtouyF6Bnw"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
+<span class="text-[10px] text-white/80 font-label">View Fullscreen</span>
+</div>
+</div>
+<span class="mt-2 mr-1 text-[10px] font-label text-on-surface-variant">Delivered</span>
+</div>
+<!-- Received Message (Short) -->
+<div class="flex flex-col items-start max-w-[85%]">
+<div class="bg-surface-container-highest text-on-surface px-5 py-3 rounded-2xl rounded-tl-none text-sm">
+                Can't wait to see you there! ⚡️
+            </div>
+</div>
+</main>
+<!-- Chat Input Bar -->
+<footer class="fixed bottom-0 left-0 w-full z-50 bg-[#11131d]/60 backdrop-blur-2xl pb-safe px-6 py-4">
+<div class="flex items-center gap-3 bg-surface-container-high rounded-full px-4 py-2 border border-outline-variant/5 shadow-inner">
+<button class="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-primary transition-all active:scale-90">
+<span class="material-symbols-outlined">photo_camera</span>
+</button>
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-on-surface placeholder:text-slate-500 font-body text-sm" placeholder="Type a message..." type="text"/>
+<button class="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-tertiary transition-all active:scale-90">
+<span class="material-symbols-outlined">sentiment_satisfied</span>
+</button>
+<button class="w-10 h-10 rounded-full snap-gradient flex items-center justify-center shadow-[0_0_20px_rgba(155,168,255,0.3)] active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">send</span>
+</button>
+</div>
+</footer>
+<!-- Invisible BottomNavBar padding for layout logic adherence -->
+<div class="hidden">
+<span data-icon="chat_bubble">chat_bubble</span>
+<span data-icon="photo_camera">photo_camera</span>
+<span data-icon="auto_awesome_motion">auto_awesome_motion</span>
+<span data-icon="person">person</span>
+</div>
+</body></html>

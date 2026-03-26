@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ChatSnap Onboarding</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-primary": "#001c8e",
+                        "on-surface-variant": "#aaaab7",
+                        "secondary": "#ff6e85",
+                        "outline": "#737580",
+                        "on-secondary-container": "#fff6f5",
+                        "surface-container-high": "#1c1f2b",
+                        "on-background": "#f0f0fd",
+                        "on-tertiary": "#3c0048",
+                        "primary-fixed": "#8999ff",
+                        "on-primary-container": "#001470",
+                        "surface-container": "#171924",
+                        "error-dim": "#d73357",
+                        "on-secondary": "#480014",
+                        "secondary-dim": "#e70052",
+                        "surface": "#0c0e17",
+                        "surface-container-highest": "#222532",
+                        "surface-container-low": "#11131d",
+                        "primary": "#9ba8ff",
+                        "error-container": "#a70138",
+                        "surface-bright": "#282b3a",
+                        "outline-variant": "#464752",
+                        "background": "#0c0e17",
+                        "inverse-on-surface": "#53545f",
+                        "inverse-primary": "#2949ef",
+                        "secondary-fixed-dim": "#ffaeb6",
+                        "error": "#ff6e84",
+                        "on-error-container": "#ffb2b9",
+                        "surface-container-lowest": "#000000",
+                        "tertiary-dim": "#c500e6",
+                        "on-tertiary-container": "#000000",
+                        "surface-dim": "#0c0e17",
+                        "surface-variant": "#222532",
+                        "tertiary-fixed": "#f189ff",
+                        "surface-tint": "#9ba8ff",
+                        "on-surface": "#f0f0fd",
+                        "on-secondary-fixed-variant": "#a40037",
+                        "on-secondary-fixed": "#6e0022",
+                        "tertiary-fixed-dim": "#eb71ff",
+                        "inverse-surface": "#faf8ff",
+                        "secondary-fixed": "#ffc2c7",
+                        "primary-dim": "#4963ff",
+                        "on-tertiary-fixed-variant": "#650077",
+                        "primary-fixed-dim": "#778aff",
+                        "on-primary-fixed-variant": "#001a88",
+                        "secondary-container": "#bd0041",
+                        "tertiary": "#e966ff",
+                        "on-error": "#490013",
+                        "on-primary-fixed": "#000000",
+                        "tertiary-container": "#d501f9",
+                        "on-tertiary-fixed": "#2f0039",
+                        "primary-container": "#8999ff"
+                    },
+                    fontFamily: {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    },
+                    borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(34, 37, 50, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary selection:text-on-primary">
+<!-- Header / Brand Anchor - Controlled by JSON Mapping -->
+<header class="fixed top-0 w-full z-50 bg-[#0c0e17]/60 backdrop-blur-xl flex justify-between items-center px-6 py-4 w-full shadow-[0_8px_32px_rgba(155,168,255,0.08)]">
+<div class="flex items-center gap-2">
+<span class="text-[#9ba8ff] font-['Plus_Jakarta_Sans'] font-extrabold tracking-tighter text-2xl">ChatSnap</span>
+</div>
+<button class="text-slate-400 font-label text-[10px] uppercase tracking-widest hover:opacity-80 transition-opacity">
+            Skip
+        </button>
+</header>
+<main class="min-h-screen flex flex-col items-center justify-center px-6 pt-24 pb-32 overflow-hidden relative">
+<!-- Background Accents (Electric Intimacy) -->
+<div class="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/10 rounded-full blur-[120px]"></div>
+<div class="absolute bottom-[10%] right-[-5%] w-[40%] h-[40%] bg-tertiary/10 rounded-full blur-[100px]"></div>
+<!-- Visual Hero (3D Glassmorphism Concept) -->
+<div class="relative w-full max-w-md aspect-square flex items-center justify-center mb-12">
+<!-- Asymmetric Layout Composition -->
+<div class="relative z-10 w-64 h-64 glass-card rounded-xl rotate-[-6deg] flex items-center justify-center border border-outline-variant/15 shadow-2xl">
+<span class="material-symbols-outlined text-8xl text-primary" data-icon="chat_bubble" style="font-variation-settings: 'FILL' 1;">chat_bubble</span>
+<!-- Floating Timer Element -->
+<div class="absolute top-[-10px] right-[-10px] w-16 h-16 bg-surface-container-highest rounded-full flex items-center justify-center border border-outline-variant/30 shadow-lg scale-110">
+<span class="material-symbols-outlined text-secondary text-3xl" data-icon="timer">timer</span>
+</div>
+</div>
+<div class="absolute z-20 bottom-[10%] right-[10%] w-48 h-48 glass-card rounded-xl rotate-[12deg] flex items-center justify-center border border-outline-variant/15 shadow-2xl overflow-hidden">
+<div class="absolute inset-0 opacity-40 bg-gradient-to-tr from-primary-dim to-tertiary-dim"></div>
+<span class="material-symbols-outlined text-7xl text-white relative z-10" data-icon="photo_camera" style="font-variation-settings: 'FILL' 1;">photo_camera</span>
+<!-- Shutter Rings Visual -->
+<div class="absolute inset-0 border-[12px] border-white/10 rounded-xl"></div>
+</div>
+<!-- Decorative Floating Particles -->
+<div class="absolute top-0 right-[20%] w-3 h-3 bg-tertiary rounded-full blur-sm"></div>
+<div class="absolute bottom-[20%] left-0 w-4 h-4 bg-primary rounded-full blur-sm"></div>
+</div>
+<!-- Content Content & Identity from JSON -->
+<div class="text-center max-w-lg z-30">
+<h1 class="font-headline text-5xl md:text-6xl font-extrabold tracking-tight mb-6 leading-[1.1]">
+                Chat Privately, <br/>
+<span class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-tertiary">Snap Instantly</span>
+</h1>
+<p class="text-on-surface-variant font-body text-lg leading-relaxed px-4">
+                Enjoy real-time chat with disappearing messages and snaps that only last as long as you want.
+            </p>
+</div>
+<!-- Progress Indicator -->
+<div class="flex gap-2 mt-10">
+<div class="w-8 h-1.5 rounded-full bg-primary"></div>
+<div class="w-2 h-1.5 rounded-full bg-surface-container-highest"></div>
+<div class="w-2 h-1.5 rounded-full bg-surface-container-highest"></div>
+</div>
+</main>
+<!-- Navigation (Bottom Bar Style Floating Interaction) -->
+<div class="fixed bottom-0 left-0 w-full p-8 z-50 flex flex-col items-center gap-6">
+<button class="w-full max-w-xs h-16 bg-gradient-to-br from-[#4963ff] to-[#c500e6] text-white font-headline font-bold text-lg rounded-full shadow-[0_8px_32px_rgba(73,99,255,0.3)] hover:scale-[1.02] active:scale-95 transition-all duration-300 flex items-center justify-center gap-2 group">
+            Next
+            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" data-icon="arrow_forward">arrow_forward</span>
+</button>
+<div class="flex items-center gap-2 opacity-50">
+<span class="w-1 h-1 rounded-full bg-outline"></span>
+<span class="text-[10px] font-label uppercase tracking-widest text-outline">Protocol v1.0.4</span>
+<span class="w-1 h-1 rounded-full bg-outline"></span>
+</div>
+</div>
+<!-- Background Layer for Snap-Overlay Feel -->
+<div class="fixed inset-0 pointer-events-none border-[12px] border-surface-container-low/20 z-[60] rounded-[3rem]"></div>
+</body></html>

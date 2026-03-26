@@ -1,0 +1,22 @@
+{
+  "rules": {
+    ".read": true,
+    ".write": true,
+    "users": {
+      ".read": true,
+      ".write": true
+    },
+    "messages": {
+      ".read": true,
+      ".write": true
+    },
+    "stories": {
+      ".read": true,
+      ".write": true
+    },
+    "secretConversations": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}

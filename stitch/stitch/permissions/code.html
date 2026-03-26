@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ChatSnap - Permissions</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-primary": "#001c8e",
+                        "on-surface-variant": "#aaaab7",
+                        "secondary": "#ff6e85",
+                        "outline": "#737580",
+                        "on-secondary-container": "#fff6f5",
+                        "surface-container-high": "#1c1f2b",
+                        "on-background": "#f0f0fd",
+                        "on-tertiary": "#3c0048",
+                        "primary-fixed": "#8999ff",
+                        "on-primary-container": "#001470",
+                        "surface-container": "#171924",
+                        "error-dim": "#d73357",
+                        "on-secondary": "#480014",
+                        "secondary-dim": "#e70052",
+                        "surface": "#0c0e17",
+                        "surface-container-highest": "#222532",
+                        "surface-container-low": "#11131d",
+                        "primary": "#9ba8ff",
+                        "error-container": "#a70138",
+                        "surface-bright": "#282b3a",
+                        "outline-variant": "#464752",
+                        "background": "#0c0e17",
+                        "inverse-on-surface": "#53545f",
+                        "inverse-primary": "#2949ef",
+                        "secondary-fixed-dim": "#ffaeb6",
+                        "error": "#ff6e84",
+                        "on-error-container": "#ffb2b9",
+                        "surface-container-lowest": "#000000",
+                        "tertiary-dim": "#c500e6",
+                        "on-tertiary-container": "#000000",
+                        "surface-dim": "#0c0e17",
+                        "surface-variant": "#222532",
+                        "tertiary-fixed": "#f189ff",
+                        "surface-tint": "#9ba8ff",
+                        "on-surface": "#f0f0fd",
+                        "on-secondary-fixed-variant": "#a40037",
+                        "on-secondary-fixed": "#6e0022",
+                        "tertiary-fixed-dim": "#eb71ff",
+                        "inverse-surface": "#faf8ff",
+                        "secondary-fixed": "#ffc2c7",
+                        "primary-dim": "#4963ff",
+                        "on-tertiary-fixed-variant": "#650077",
+                        "primary-fixed-dim": "#778aff",
+                        "on-primary-fixed-variant": "#001a88",
+                        "secondary-container": "#bd0041",
+                        "tertiary": "#e966ff",
+                        "on-error": "#490013",
+                        "on-primary-fixed": "#000000",
+                        "tertiary-container": "#d501f9",
+                        "on-tertiary-fixed": "#2f0039",
+                        "primary-container": "#8999ff"
+                    },
+                    fontFamily: {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    },
+                    borderRadius: { "DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(34, 37, 50, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .toggle-active {
+            background: linear-gradient(135deg, #4963ff 0%, #c500e6 100%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary/30 min-h-screen overflow-x-hidden">
+<!-- Hero Visual Background -->
+<div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
+<div class="absolute -top-[10%] -left-[10%] w-[60%] h-[50%] rounded-full bg-primary/10 blur-[120px]"></div>
+<div class="absolute top-[20%] -right-[10%] w-[50%] h-[60%] rounded-full bg-tertiary/10 blur-[120px]"></div>
+</div>
+<main class="relative z-10 max-w-lg mx-auto px-6 pt-20 pb-12 flex flex-col min-h-screen">
+<!-- Header Section -->
+<header class="mb-12 text-center md:text-left">
+<h1 class="font-headline text-5xl font-extrabold tracking-tight mb-4 text-on-background leading-tight">
+                Let's Get Started
+            </h1>
+<p class="text-on-surface-variant text-lg leading-relaxed max-w-md">
+                To provide the best experience, ChatSnap needs these permissions:
+            </p>
+</header>
+<!-- Permissions List (Bento-inspired Grid) -->
+<div class="space-y-4 mb-12">
+<!-- Item 1: Contacts -->
+<section class="glass-card p-6 rounded-lg border border-outline-variant/15 flex items-center gap-5 group transition-all duration-300 hover:bg-surface-container-highest">
+<div class="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center text-primary transition-transform group-hover:scale-110">
+<span class="material-symbols-outlined text-3xl" data-icon="person_search">person_search</span>
+</div>
+<div class="flex-grow">
+<h3 class="font-headline font-bold text-xl text-on-surface mb-0.5">Contacts</h3>
+<p class="text-on-surface-variant text-sm">Find friends automatically</p>
+</div>
+<div class="relative inline-flex items-center cursor-pointer">
+<div class="w-14 h-8 bg-surface-container rounded-full p-1 transition-colors duration-300 toggle-active">
+<div class="bg-white w-6 h-6 rounded-full shadow-lg transform translate-x-6 transition-transform duration-300"></div>
+</div>
+</div>
+</section>
+<!-- Item 2: Camera -->
+<section class="glass-card p-6 rounded-lg border border-outline-variant/15 flex items-center gap-5 group transition-all duration-300 hover:bg-surface-container-highest">
+<div class="w-16 h-16 rounded-xl bg-tertiary/10 flex items-center justify-center text-tertiary transition-transform group-hover:scale-110">
+<span class="material-symbols-outlined text-3xl" data-icon="photo_camera" style="font-variation-settings: 'FILL' 1;">photo_camera</span>
+</div>
+<div class="flex-grow">
+<h3 class="font-headline font-bold text-xl text-on-surface mb-0.5">Camera</h3>
+<p class="text-on-surface-variant text-sm">Snap and share instantly</p>
+</div>
+<div class="relative inline-flex items-center cursor-pointer">
+<div class="w-14 h-8 bg-surface-container rounded-full p-1 transition-colors duration-300 toggle-active">
+<div class="bg-white w-6 h-6 rounded-full shadow-lg transform translate-x-6 transition-transform duration-300"></div>
+</div>
+</div>
+</section>
+<!-- Item 3: Notifications -->
+<section class="glass-card p-6 rounded-lg border border-outline-variant/15 flex items-center gap-5 group transition-all duration-300 hover:bg-surface-container-highest">
+<div class="w-16 h-16 rounded-xl bg-secondary/10 flex items-center justify-center text-secondary transition-transform group-hover:scale-110">
+<span class="material-symbols-outlined text-3xl" data-icon="notifications_active">notifications_active</span>
+</div>
+<div class="flex-grow">
+<h3 class="font-headline font-bold text-xl text-on-surface mb-0.5">Notifications</h3>
+<p class="text-on-surface-variant text-sm">Never miss a snap</p>
+</div>
+<div class="relative inline-flex items-center cursor-pointer">
+<div class="w-14 h-8 bg-surface-container-highest rounded-full p-1 transition-colors duration-300">
+<div class="bg-on-surface-variant w-6 h-6 rounded-full shadow-lg transform translate-x-0 transition-transform duration-300"></div>
+</div>
+</div>
+</section>
+</div>
+<!-- Footer Actions -->
+<footer class="mt-auto space-y-6 text-center">
+<button class="w-full py-5 bg-gradient-to-r from-primary-dim to-tertiary-dim text-white font-headline font-bold text-lg rounded-full shadow-[0_20px_40px_rgba(73,99,255,0.25)] hover:scale-[1.02] active:scale-[0.98] transition-all">
+                Allow All
+            </button>
+<button class="w-full text-on-surface-variant font-label text-sm uppercase tracking-[0.2em] hover:text-on-surface transition-colors pb-4">
+                Not Now
+            </button>
+</footer>
+<!-- Brand Identity Visual -->
+<div class="mt-8 flex justify-center opacity-20">
+<div class="flex items-center gap-2 grayscale brightness-200">
+<span class="material-symbols-outlined text-2xl" data-icon="auto_awesome">auto_awesome</span>
+<span class="font-headline font-extrabold tracking-tighter text-xl">ChatSnap</span>
+</div>
+</div>
+</main>
+<!-- Decorative Bottom Gradient -->
+<div class="fixed bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-surface to-transparent pointer-events-none z-0"></div>
+</body></html>

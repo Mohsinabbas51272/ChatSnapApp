@@ -1,0 +1,14 @@
+/* tailwindcss-ignore */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .glass-light {
+    background-color: rgba(255, 255, 255, 0.8);
+  }
+  
+  .glass-dark {
+    background-color: rgba(0, 0, 0, 0.6);
+  }
+}

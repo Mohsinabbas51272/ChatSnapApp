@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #0c0e17;
+            color: #f0f0fd;
+            -webkit-font-smoothing: antialiased;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                "on-primary": "#001c8e",
+                "on-surface-variant": "#aaaab7",
+                "secondary": "#ff6e85",
+                "outline": "#737580",
+                "on-secondary-container": "#fff6f5",
+                "surface-container-high": "#1c1f2b",
+                "on-background": "#f0f0fd",
+                "on-tertiary": "#3c0048",
+                "primary-fixed": "#8999ff",
+                "on-primary-container": "#001470",
+                "surface-container": "#171924",
+                "error-dim": "#d73357",
+                "on-secondary": "#480014",
+                "secondary-dim": "#e70052",
+                "surface": "#0c0e17",
+                "surface-container-highest": "#222532",
+                "surface-container-low": "#11131d",
+                "primary": "#9ba8ff",
+                "error-container": "#a70138",
+                "surface-bright": "#282b3a",
+                "outline-variant": "#464752",
+                "background": "#0c0e17",
+                "inverse-on-surface": "#53545f",
+                "inverse-primary": "#2949ef",
+                "secondary-fixed-dim": "#ffaeb6",
+                "error": "#ff6e84",
+                "on-error-container": "#ffb2b9",
+                "surface-container-lowest": "#000000",
+                "tertiary-dim": "#c500e6",
+                "on-tertiary-container": "#000000",
+                "surface-dim": "#0c0e17",
+                "surface-variant": "#222532",
+                "tertiary-fixed": "#f189ff",
+                "surface-tint": "#9ba8ff",
+                "on-surface": "#f0f0fd",
+                "on-secondary-fixed-variant": "#a40037",
+                "on-secondary-fixed": "#6e0022",
+                "tertiary-fixed-dim": "#eb71ff",
+                "inverse-surface": "#faf8ff",
+                "secondary-fixed": "#ffc2c7",
+                "primary-dim": "#4963ff",
+                "on-tertiary-fixed-variant": "#650077",
+                "primary-fixed-dim": "#778aff",
+                "on-primary-fixed-variant": "#001a88",
+                "secondary-container": "#bd0041",
+                "tertiary": "#e966ff",
+                "on-error": "#490013",
+                "on-primary-fixed": "#000000",
+                "tertiary-container": "#d501f9",
+                "on-tertiary-fixed": "#2f0039",
+                "primary-container": "#8999ff"
+              },
+              fontFamily: {
+                "headline": ["Plus Jakarta Sans"],
+                "body": ["Manrope"],
+                "label": ["Manrope"]
+              },
+              borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+            },
+          },
+        }
+      </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface font-body overflow-x-hidden">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-[#0c0e17]/60 backdrop-blur-xl shadow-[0_8px_32px_rgba(155,168,255,0.08)] flex justify-between items-center px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary/20 hover:opacity-80 transition-opacity scale-95 active:scale-90 transition-transform cursor-pointer">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="Close up portrait of a stylish young man with a slight smile, warm outdoor lighting, urban background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBDiE9PG9YyjLLvadg0-VKylWX6do5Ss3I4po38TPWLWV-B0RUGlRoCCkX-sUTBdtpXiCXNJ2DtS7OHwwb5dFb_BaCkLm39ERgEnMvVAVLbh-ZB54vDui8jTDdcrFfYPE2OhoZySSj4tr3uoTKmXGeDhPvzhryt2-vE3wRahBhAo78iSk5EJ7-6HdDMVEp49zTBfeSKET2IemB3AEpqvvb2EMsv4EBCbcvJ4mGQXYiwCB4XDRhZF-FTLUaW2v38Vlt-sYEDb_pI_3U"/>
+</div>
+<h1 class="font-headline text-2xl font-bold tracking-tight text-on-surface">Stories</h1>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant hover:opacity-80 transition-opacity scale-95 active:scale-90 transition-transform">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</button>
+<button class="text-on-surface-variant hover:opacity-80 transition-opacity scale-95 active:scale-90 transition-transform">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</header>
+<main class="pt-24 pb-32">
+<!-- Horizontal Stories List -->
+<section class="mb-8">
+<div class="px-6 mb-4 flex justify-between items-end">
+<h2 class="font-headline text-lg font-bold text-on-surface">Recent Updates</h2>
+<span class="font-label text-xs uppercase tracking-widest text-primary font-bold">View All</span>
+</div>
+<div class="flex gap-4 overflow-x-auto px-6 hide-scrollbar">
+<!-- My Story -->
+<div class="flex flex-col items-center gap-2 flex-shrink-0">
+<div class="relative w-20 h-20 rounded-full p-1 bg-surface-container-highest">
+<div class="w-full h-full rounded-full overflow-hidden relative">
+<img alt="My Story" class="w-full h-full object-cover" data-alt="Selfie of a young man smiling, natural lighting, high quality portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBw2ohEjaL-NHxCzqx4OqcGkWeDoKwUoQGQKNQjo3bUTpG--S3BmoT1n9H1lAj2NOuHvA-QRrYjG9T0Mh4m2uoiyRoLcwsHkB9M8F1VGI8UpatT23phNN3Cka4Szp8PC_Tg31GyX0vZQ1sHx1Ax0Js_X1wKBmKJWWsljJ6ntoxgiQQSNGW2nz_XDDAqTO0HHur2U_jbtQbIO09C4lXb1HPhD2HeVunO612uVnMD1EZ2uygmujY8Wfb2EGJjvOnWX-GkCNSu_u4wIzk"/>
+<div class="absolute inset-0 bg-black/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-2xl" data-icon="add">add</span>
+</div>
+</div>
+</div>
+<span class="font-label text-[11px] text-on-surface-variant">Add Story</span>
+</div>
+<!-- Story Item 1 -->
+<div class="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer group">
+<div class="relative w-20 h-20 rounded-full p-[3px] bg-gradient-to-tr from-[#4963ff] via-[#c500e6] to-[#ff6e85] transition-transform duration-300 group-hover:scale-105">
+<div class="w-full h-full rounded-full border-2 border-surface overflow-hidden">
+<img alt="Sarah" class="w-full h-full object-cover" data-alt="Vibrant portrait of a woman with long hair, neon city lights reflecting in her eyes, cinematic mood" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDjeJHaWxq-08fxpJLWBEkyIS-OjqywFN9qBhoiwujBKXyDlLVdbVo-s9aqTWT1QLxtyMX0RPw5DkSjvRrdxJxTQa85fGqKtW7oPSC-YTWc5EvZwXWFRf3Fq2JpoMvzRIT9JO-0-Zy2hDbcwGhpbtx2TBmzyTaS5INYUMfOqjg8ka-Ou7fPtkoCAb-vInvCcrB-eLaWKUXmbznbSTXLSNhrsdtJEuCOK8AJ1vCJYyvjw1tWIFZfwhr1nocZV1jWXY0ENEx-hbaMlGs"/>
+</div>
+</div>
+<span class="font-label text-[11px] text-on-surface">Sarah</span>
+</div>
+<!-- Story Item 2 -->
+<div class="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer group">
+<div class="relative w-20 h-20 rounded-full p-[3px] bg-gradient-to-tr from-[#4963ff] via-[#c500e6] to-[#ff6e85] transition-transform duration-300 group-hover:scale-105">
+<div class="w-full h-full rounded-full border-2 border-surface overflow-hidden">
+<img alt="Alex" class="w-full h-full object-cover" data-alt="Studio portrait of a man with beard, soft dramatic lighting, professional photography" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBEZuMLvd981ABPqzdoDS2ppUtRemnbt7gcenyDhJQMIdwamG1pIEybB7aMHldaElQFdKV25045JoGInSlFCGMydeP3AQ13AOEh86HoJy49tFUZn7OnrGMpLhVuf0jbv3LH--trvAOTK4SMvJbHhuryM3UjezZovATZYOLngYR1vyfwKAoxNRjLnMOG7i5v5aD6MugbNl7leIvh0gGQgh0Qa7QOWrL3pFw_7OMHXIpCgUGUsscaaJdDVvu2vDPW_R65HXxO3tkfY68"/>
+</div>
+</div>
+<span class="font-label text-[11px] text-on-surface">Alex</span>
+</div>
+<!-- Story Item 3 -->
+<div class="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer group">
+<div class="relative w-20 h-20 rounded-full p-[3px] bg-gradient-to-tr from-[#4963ff] via-[#c500e6] to-[#ff6e85] transition-transform duration-300 group-hover:scale-105">
+<div class="w-full h-full rounded-full border-2 border-surface overflow-hidden">
+<img alt="Elena" class="w-full h-full object-cover" data-alt="Young woman looking over shoulder, sunset light creating a rim light effect, outdoor cafe setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBpyuDeDy0kY9mKzM_YmoQHoJ41NmxcS2EYwzJ4ccQpCNF4p6yYR1v2kOlyOiEQckKiKbT0w3cBPpHjs_CBL0qtg_esYbQriK5QZJgwB2mpVM2Syw61CqE0ZGB0W4ZJSoRhw3QXatYO1zNCkRpXOOL3fO72YBsEvCr4_QLczu0aKPjhNSkgi5nt6jZjHA7ZgGMEk7Blf8vUiPDCg7I2rFGvu_c0u5gKTqWzH0D-fGhEdiGW0S5LVW1J84iqtY36gkE3hpuxg_lqTBM"/>
+</div>
+</div>
+<span class="font-label text-[11px] text-on-surface">Elena</span>
+</div>
+<!-- Story Item 4 -->
+<div class="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer group">
+<div class="relative w-20 h-20 rounded-full p-[3px] bg-gradient-to-tr from-[#4963ff] via-[#c500e6] to-[#ff6e85] transition-transform duration-300 group-hover:scale-105">
+<div class="w-full h-full rounded-full border-2 border-surface overflow-hidden">
+<img alt="Marcus" class="w-full h-full object-cover" data-alt="Cheerful man wearing glasses, bright natural daylight, mountain landscape background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3C_BF1mktGyX0bm_SqVG0QYuzXBeGalQP5llgIXdJ0Cu-XC2Gni-54NhGz3mhSjc0Y3drkE8ilc2aQwd47e6j7le83UeU2Ee-cmTRpWHpALlErG19UIJLMmZMQXMz01HL7PypSEvnDodn-UcmqSL36B1omzUTuFOoRvNXGZYg1aqB6NKulSB6y9Zv0vp_jCOtcmo6zbj-HodRflt2hL4qyQA8pE9v97bSn73sl3tZdibbYa69DwLF9P57A2en_5rZ4M97oji_oko"/>
+</div>
+</div>
+<span class="font-label text-[11px] text-on-surface">Marcus</span>
+</div>
+</div>
+</section>
+<!-- Public Stories Grid -->
+<section class="px-6">
+<div class="mb-6">
+<h2 class="font-headline text-lg font-bold text-on-surface">Public Stories</h2>
+<p class="font-body text-xs text-on-surface-variant">Trending moments from the community</p>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<!-- Grid Item 1 -->
+<div class="relative aspect-[3/4] rounded-xl overflow-hidden group cursor-pointer bg-surface-container">
+<img alt="Music Festival" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Blurred concert crowd with vibrant purple and pink stage lights, high energy festival atmosphere" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAwpIu0UU4AjwFuR2gftnOToMJtGHLuabpzuni_3Q-Kt5F4bbf8L77g6H_R2aoXNKNNEAIBVoySDC6hJBAKoKSaGyKJ5fkBppnO37KmZrZtpiHgVgvG26QJVSyTQlzHpIuk7xYyU05PqjhzUS-YbvVWezXVWC0ZZPib2xIj475gZLHH1B3woWKh246YueTpA-_0XQTZoE98Gii3DceS4e2Yjl4SyBxhfXq2jpWvmzpKR7PSjsjogHngWetICabIG7sUT6sxgO__y1Y"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+<div class="absolute bottom-4 left-4 right-4">
+<p class="font-headline text-sm font-bold text-white truncate">Summer Beats 2024</p>
+<div class="flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-[14px] text-primary" data-icon="visibility">visibility</span>
+<span class="font-label text-[10px] text-on-surface-variant uppercase">12.4k views</span>
+</div>
+</div>
+<div class="absolute top-4 left-4 flex items-center gap-2">
+<div class="w-6 h-6 rounded-full border border-white/40 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Small round avatar of a woman" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB3sqTGifJyPefcLtUlbDBBB0Tby5CpzR1PtUvvQq09Sq-sakcQIXGOl-qvTw976roZwX_A_yBUuBbJGmwIBRzXbEx4CZOs5VOtE8pgOE4LsVkXsPq4QrkE0T5wME5W63HjsjtsrZZ6VYHVtkNltVzLoTxi5uoXKzZ5YTBPqsfF97zM88_0g7T-_2QCCHZP1M8QwCFIZnInEz_vEqM3Pb_dKflQwz8FZrTOtd1K9N1CwMu0YkkbygDIXtUP-rxXfzxeiSgcuhpiqsY"/>
+</div>
+<span class="text-[10px] font-bold text-white drop-shadow-md">Sarah J.</span>
+</div>
+</div>
+<!-- Grid Item 2 -->
+<div class="relative aspect-[3/4] rounded-xl overflow-hidden group cursor-pointer bg-surface-container">
+<img alt="Nature Trip" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Serene mountain lake at dawn, mist rising from water, deep teal and orange hues" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCg12e2WDGBd6F8GyzHc-wqY1tZYJ49Y9FTY6UvIg6xgw3fLttJTrBxC6r8T4JW9H_7vVw0whnhUh5-y0e91aN9YtFo0CvfACQ-qEXUC7kxpYAKBuqsVyT5DZJEhqkQYzQbS8XCICdnLTePzy9Qh5zGJ8mbpGEqe7AS9iQfOGsxnrOxzGuqs8oOaTvaK82tkSM8wmvPVFWkHbnSev6EeWePw1Kf4GniJ8CvSvy6t5YtgaBbWN62ABcQBGyVvi7daaH0OE_IZMYmCqM"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+<div class="absolute bottom-4 left-4 right-4">
+<p class="font-headline text-sm font-bold text-white truncate">Morning Haze</p>
+<div class="flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-[14px] text-primary" data-icon="visibility">visibility</span>
+<span class="font-label text-[10px] text-on-surface-variant uppercase">8.1k views</span>
+</div>
+</div>
+<div class="absolute top-4 left-4 flex items-center gap-2">
+<div class="w-6 h-6 rounded-full border border-white/40 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Small round avatar of a man" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCRGs-orkXedtVGhJgyBKa2s2PrBgsda6k1Fl_In29fvbSEx2CXWm_zc7lNcXgulwVDDn2vif0JcmwJJ9PFSdyAh9v863TBuv1nmYy4AEI5mCms62viA0H9xxY4DTP_mSHJR7tsPZA8YL8Lhp9RNS679GTTqatuaahCnC6egnb6T_0yBV53NnEm8d7sWF9zqzU20F6Hy_zF1a9BSrlZWHMSyPZahmYoNE0at_1qJZ_SMVmDZclaK4u2T7Y7xaVKRdTsh1lsGsXILh0"/>
+</div>
+<span class="text-[10px] font-bold text-white drop-shadow-md">Alex Rivera</span>
+</div>
+</div>
+<!-- Grid Item 3 -->
+<div class="relative aspect-[3/4] rounded-xl overflow-hidden group cursor-pointer bg-surface-container">
+<img alt="Dinner Out" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Interior of a modern high-end restaurant, warm ambient lighting, elegant dinner setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAxms4lQysuTAuS0ESLt473aBav3tpbxDbV-as8PuH79LajPCcA_koyLgjXgjTJN3c2EtGObOi8EHzKXU_SEF9hylqBaZ6EddCRwRi27ujMGiZaDl2C1Tso4U5w9fSOc5MF9mIVPOJWh46w8uJuuqcYlfuUx6D6XpBmX-k7l4qBf60dbw9ygnWkbmXCw9lrG_sMgpSHBsg2N_8_rYN7zrFOl3ej5A5nrk9E0q8C8jyEhTwMS4lgAD81cI_s-NlM-YnIrEF3J_f7SrE"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+<div class="absolute bottom-4 left-4 right-4">
+<p class="font-headline text-sm font-bold text-white truncate">Gourmet Nights</p>
+<div class="flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-[14px] text-primary" data-icon="visibility">visibility</span>
+<span class="font-label text-[10px] text-on-surface-variant uppercase">5.2k views</span>
+</div>
+</div>
+<div class="absolute top-4 left-4 flex items-center gap-2">
+<div class="w-6 h-6 rounded-full border border-white/40 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Small round avatar of a woman" src="https://lh3.googleusercontent.com/aida-public/AB6AXuChOgznAc_PF9IsAeTA95rv-0VT-JS7DdJLZEC5ByTH1EZgFiOo6ozcu9GpHiFToVjmME2HKu3Igc5ydnOAAhYMR6Re6a7lwgJfhPkmRT8BRR9z7oCsZ4jYnFqbbTRgA9zsflz-BYj9k9WuNrtRxxRkw6iOKDQT3hEjf0naddJ4iJCDzcO0WZsfT71fkoQDqxxBDz-xUbUpfjzzjp_SQi6MdJhxZOVUgyR_RwCT0_VJZySrE1m6nsmnlmLtu7NbtppdQuqNr_j4mZo"/>
+</div>
+<span class="text-[10px] font-bold text-white drop-shadow-md">Elena W.</span>
+</div>
+</div>
+<!-- Grid Item 4 -->
+<div class="relative aspect-[3/4] rounded-xl overflow-hidden group cursor-pointer bg-surface-container">
+<img alt="City Vibes" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Urban street photography at night, neon signs in Tokyo, rainy pavement reflecting colors" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA80B6DJSo4uJ48JNAWQUgKSjUkqKLkqr7a4-LBl5DAwGC1YL8WgbjLahMQ4BDHCs0jbdNedNKLRM5h3NHyEmJSgo3oiKWTkEFl4nSINELBh4eBg0ktLk3Py099ZqRyGTj-dBiuOdOpHeH4Yt6DQ2ALZA9ME5h9Sx46n7P0k0AekmLw79MJK1MjnQKWJlo4LYe9HWiAIXB9xJwPOkh0gwnBYkm0k5rMIJl9WJ1zOkhcdZ7QrguKnP3oeqZZ8Ds_-9WPa4RvpnLnrvM"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+<div class="absolute bottom-4 left-4 right-4">
+<p class="font-headline text-sm font-bold text-white truncate">Neon Dreams</p>
+<div class="flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-[14px] text-primary" data-icon="visibility">visibility</span>
+<span class="font-label text-[10px] text-on-surface-variant uppercase">21.9k views</span>
+</div>
+</div>
+<div class="absolute top-4 left-4 flex items-center gap-2">
+<div class="w-6 h-6 rounded-full border border-white/40 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Small round avatar of a man" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBmfOiXKC0WWKPPd3x2CLhRi06_SPuQxPmAyfiQQUckRviCGTIyFpI-WSXF2BvBZ9-z3AQUFFyDMPAh9r3qG72IHpS2EADvqTHnhRL9vNeQ2okJnj0yQMdO7jnm88SWa428HFtJDTQXVGhrEan61tRfMUH7M8BWl1EuMBGq5i5F2wCgzpj0SajZCYZa9FkPKgYWhlPLFdugXUPMoBG3o-anqc694Ni7xxeLzf7aiHfabOmiRKDpKYvw5DMMNyYjfpDmexGge4t_nRQ"/>
+</div>
+<span class="text-[10px] font-bold text-white drop-shadow-md">Marcus T.</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-8 py-4 bg-[#11131d]/60 backdrop-blur-2xl rounded-t-[3rem] shadow-[0_-4px_24px_rgba(0,0,0,0.4)]">
+<!-- Chat Tab -->
+<a class="flex items-center justify-center text-slate-500 w-12 h-12 hover:text-[#e966ff] transition-all duration-300 scale-110 active:scale-95" href="#">
+<span class="material-symbols-outlined" data-icon="chat_bubble">chat_bubble</span>
+</a>
+<!-- Camera Tab -->
+<a class="flex items-center justify-center text-slate-500 w-12 h-12 hover:text-[#e966ff] transition-all duration-300 scale-110 active:scale-95" href="#">
+<span class="material-symbols-outlined" data-icon="photo_camera">photo_camera</span>
+</a>
+<!-- Stories Tab (ACTIVE) -->
+<a class="flex items-center justify-center bg-gradient-to-br from-[#4963ff] to-[#c500e6] text-white rounded-full w-12 h-12 shadow-[0_0_20px_rgba(155,168,255,0.3)] scale-110 active:scale-95 transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="auto_awesome_motion">auto_awesome_motion</span>
+</a>
+<!-- Profile Tab -->
+<a class="flex items-center justify-center text-slate-500 w-12 h-12 hover:text-[#e966ff] transition-all duration-300 scale-110 active:scale-95" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+</a>
+</nav>
+</body></html>
