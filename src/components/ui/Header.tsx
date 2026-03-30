@@ -9,6 +9,7 @@ import { RootState } from '../../store';
 
 interface HeaderProps {
   title?: string;
+  subtitle?: string;
   showBack?: boolean;
   rightElement?: React.ReactNode;
   transparent?: boolean;
@@ -16,6 +17,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = React.memo(({ 
   title, 
+  subtitle,
   showBack = false, 
   rightElement,
   transparent = false
@@ -40,7 +42,7 @@ const Header: React.FC<HeaderProps> = React.memo(({
       style={containerStyle}
     >
       <StatusBar barStyle="light-content" backgroundColor={primaryColor} />
-      <View className="flex-row items-center justify-between px-6 py-4 h-[60]">
+      <View className="flex-row items-center justify-between px-4 py-4 h-[60]">
         <View className="w-10">
           {showBack && (
             <TouchableOpacity 
@@ -52,12 +54,29 @@ const Header: React.FC<HeaderProps> = React.memo(({
             </TouchableOpacity>
           )}
         </View>
-        
-        {title && (
-          <Text className="text-xl font-black text-white tracking-tight">{title}</Text>
-        )}
-        
-        <View className="w-10 items-end">
+
+        <View className="flex-1 items-center justify-center px-4">
+          {title && (
+            <Text
+              className={`font-black text-white tracking-tight ${subtitle ? 'text-lg' : 'text-xl'}`}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={{ maxWidth: '100%' }}
+            >
+              {title}
+            </Text>
+          )}
+          {subtitle && (
+            <Text
+              className="text-[11px] font-bold text-white/70 uppercase tracking-widest mt-[-2px]"
+              numberOfLines={1}
+            >
+              {subtitle}
+            </Text>
+          )}
+        </View>
+
+        <View className="min-w-[70px] flex-row items-center justify-end">
           {rightElement}
         </View>
       </View>

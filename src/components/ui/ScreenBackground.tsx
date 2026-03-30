@@ -28,17 +28,17 @@ const ScreenBackground: React.FC<ScreenBackgroundProps> = React.memo(({
       {showBubbles && (
         <>
           <View 
-            className="absolute top-[-10%] left-[-15%] w-[80%] h-[60%] rounded-full opacity-[0.12]" 
+            className="absolute top-[-10%] left-[-15%] w-[80%] h-[60%] rounded-full opacity-[0.05]" 
             style={bubble1Style} 
             pointerEvents="none" 
           />
           <View 
-            className="absolute bottom-[-5%] right-[-15%] w-[80%] h-[60%] rounded-full opacity-[0.10]" 
+            className="absolute bottom-[-5%] right-[-15%] w-[80%] h-[60%] rounded-full opacity-[0.04]" 
             style={bubble2Style} 
             pointerEvents="none" 
           />
           <View 
-            className="absolute top-[30%] right-[-20%] w-[50%] h-[40%] rounded-full opacity-[0.06]" 
+            className="absolute top-[30%] right-[-20%] w-[50%] h-[40%] rounded-full opacity-[0.02]" 
             style={bubble3Style} 
             pointerEvents="none" 
           />

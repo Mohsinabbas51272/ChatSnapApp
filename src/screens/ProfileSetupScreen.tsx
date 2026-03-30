@@ -49,7 +49,7 @@ const ProfileSetupScreen = () => {
         // If it's a new local image (starting with file://), convert to Base64
         if (image && image.startsWith('file://')) {
           const base64 = await FileSystem.readAsStringAsync(image, {
-            encoding: FileSystem.EncodingType.Base64,
+            encoding: 'base64',
           });
           finalPhotoURL = `data:image/jpeg;base64,${base64}`;
         }

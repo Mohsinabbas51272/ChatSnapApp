@@ -20,7 +20,7 @@ import { onSnapshot, doc } from 'firebase/firestore';
 import { db } from '../services/firebaseConfig';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
-import { sendMessage, subscribeToMessages, Message, markAsViewed, addReaction, deleteMessage } from '../services/messaging';
+import { sendMessage, subscribeToMessages, Message, markAsViewed, addReaction, deleteMessage, setTypingStatus, subscribeToTypingStatus, markAsReceived } from '../services/messaging';
 import { useRoute, useNavigation } from '@react-navigation/native';
 
 import SnapCameraScreen from '../components/SnapCameraScreen';
@@ -138,7 +138,12 @@ const MessageItem = React.memo(({ item, isMe, chatPartner, onOpenSnap, onLongPre
             shadowRadius: 10,
             elevation: 4,
           } : {
-            backgroundColor: '#222532',
+            backgroundColor: '#5d8aff',
+            shadowColor: '#5d8aff',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.2,
+            shadowRadius: 10,
+            elevation: 4,
           }}
           className={`px-5 py-3 rounded-2xl ${
             isMe ? 'rounded-tr-none' : 'rounded-tl-none'
@@ -146,10 +151,10 @@ const MessageItem = React.memo(({ item, isMe, chatPartner, onOpenSnap, onLongPre
         >
           {isSnap ? (
             <View className="flex-row items-center">
-              <View className={`w-8 h-8 rounded-full items-center justify-center ${isMe ? 'bg-white/20' : 'bg-primary/10'}`}>
-                <Camera size={18} color={isMe ? 'white' : '#9ba8ff'} />
+              <View className={`w-8 h-8 rounded-full items-center justify-center ${isMe ? 'bg-white/20' : 'bg-white/20'}`}>
+                <Camera size={18} color={isMe ? 'white' : 'white'} />
               </View>
-              <Text className={`ml-3 font-bold text-base ${isMe ? 'text-white' : 'text-primary'}`}>
+              <Text className={`ml-3 font-bold text-base ${isMe ? 'text-white' : 'text-white'}`}>
                 {item.viewed ? 'Opened' : isMe ? 'Sent Snap' : 'Tap to View'}
               </Text>
             </View>
@@ -162,17 +167,26 @@ const MessageItem = React.memo(({ item, isMe, chatPartner, onOpenSnap, onLongPre
              />
           ) : (
             <View>
-                <Text className={`text-base font-medium pr-6 ${isMe ? 'text-white' : 'text-onSurface'}`}>
+                <Text className={`text-base font-medium pr-6 ${isMe ? 'text-white' : 'text-white'}`}>
                 {item.text}
                 </Text>
                 {isMe && (
-                  <View className="absolute bottom-[-2] right-[-4]">
+                  <View className="absolute bottom-[-2] right-[-4] flex-row items-center">
                       {item.viewed ? (
-                        <CheckCheck size={14} color="#9ba8ff" />
+                        <View className="flex-row items-center">
+                          <CheckCheck size={14} color="#9ba8ff" />
+                          <Text className="text-[10px] text-primary ml-1">Read</Text>
+                        </View>
                       ) : item.received ? (
-                        <CheckCheck size={14} color="rgba(255,255,255,0.5)" />
+                        <View className="flex-row items-center">
+                          <CheckCheck size={14} color="rgba(255,255,255,0.5)" />
+                          <Text className="text-[10px] text-white/60 ml-1">Delivered</Text>
+                        </View>
                       ) : (
-                        <Check size={14} color="rgba(255,255,255,0.5)" />
+                        <View className="flex-row items-center">
+                          <Check size={14} color="rgba(255,255,255,0.5)" />
+                          <Text className="text-[10px] text-white/60 ml-1">Sent</Text>
+                        </View>
                       )}
                   </View>
                 )}
@@ -233,18 +247,50 @@ const ChatScreen = () => {
   useEffect(() => {
     if (!currentUser.uid || !chatPartner.uid) return;
 
-    const unsubscribe = subscribeToMessages(currentUser.uid, chatPartner.uid, (newMessages) => {
-      setMessages(newMessages);
+    const conversationId = [currentUser.uid, chatPartner.uid].sort().join('_');
+    
+    const unsubscribeMessages = subscribeToMessages(
+      currentUser.uid, 
+      chatPartner.uid, 
+      (newMessages) => {
+        setMessages(newMessages);
+      },
+      (newMessage) => {
+        // Send notification for new messages when app is not focused on this chat
+        // This will be handled by the notification service
+      }
+    );
+
+    const unsubscribeTyping = subscribeToTypingStatus(conversationId, (users) => {
+      setTypingUsers(users.filter(id => id !== currentUser.uid));
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeMessages();
+      unsubscribeTyping();
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
   }, [chatPartner.uid, currentUser.uid]);
 
   useEffect(() => {
     if (!currentUser.uid || !chatPartner.uid || messages.length === 0) return;
 
+    // Mark messages as received when they arrive
+    const unreadMessages = messages.filter(m => 
+      m.senderId === chatPartner.uid && 
+      !m.received && 
+      m.id
+    );
+    
+    unreadMessages.forEach(async (msg) => {
+      if (msg.id) {
+        await markAsReceived(msg.id);
+      }
+    });
+
     // Only mark the latest message as viewed if it's from partner and unread
-    // This reduces the number of update calls significantly
     const lastMessage = messages[messages.length - 1];
     if (lastMessage.senderId === chatPartner.uid && !lastMessage.viewed) {
       markAsViewed(lastMessage.id!);
@@ -257,20 +303,22 @@ const ChatScreen = () => {
   const [recordingDuration, setRecordingDuration] = useState(0);
   const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevMessageCountRef = useRef(0);
+  const [isTyping, setIsTyping] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!chatPartner.phoneNumber) return;
+    if (!chatPartner.uid) return;
 
-    const partnerDocId = `user-${chatPartner.phoneNumber}`;
-    const unsubscribe = onSnapshot(doc(db, 'users', partnerDocId), (doc) => {
-      if (doc.exists()) {
-        const data = doc.data();
+    const unsubscribe = onSnapshot(doc(db, 'users', chatPartner.uid), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
         setPartnerStatus({ status: data.status, lastSeen: data.lastSeen });
       }
     });
 
     return () => unsubscribe();
-  }, [chatPartner.phoneNumber]);
+  }, [chatPartner.uid]);
 
   const [isSecret, setIsSecret] = useState(false);
 
@@ -288,15 +336,18 @@ const ChatScreen = () => {
     }
   };
 
-  const formatLastSeen = (timestamp: any) => {
-    if (!timestamp) return 'Offline';
-    const date = timestamp.toDate();
+  const formatLastSeen = (statusObj: any) => {
+    if (statusObj.status === 'online') return 'Online';
+    if (!statusObj.lastSeen) return 'Offline';
+    
+    const date = statusObj.lastSeen.toDate ? statusObj.lastSeen.toDate() : new Date(statusObj.lastSeen);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     
     if (diff < 60000) return 'Just now';
     if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (diff < 86400000) return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
 
   const startRecording = async () => {
@@ -336,6 +387,30 @@ const ChatScreen = () => {
     if (uri) {
       handleSend('voice', uri, currentDuration);
     }
+  };
+
+  const handleInputChange = (text: string) => {
+    setInputText(text);
+    
+    if (!currentUser.uid || !chatPartner.uid) return;
+    
+    const conversationId = [currentUser.uid, chatPartner.uid].sort().join('_');
+    
+    if (text.trim() && !isTyping) {
+      setIsTyping(true);
+      setTypingStatus(conversationId, currentUser.uid, true);
+    }
+    
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Set new timeout to stop typing after 2 seconds of no input
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+      setTypingStatus(conversationId, currentUser.uid || '', false);
+    }, 2000);
   };
 
   const handleSend = async (type: 'text' | 'snap' | 'voice' = 'text', mediaUri?: string, duration?: number, filter: string = 'none') => {
@@ -433,6 +508,7 @@ const ChatScreen = () => {
       ) : (
         <Header 
           title={chatPartner.displayName} 
+          subtitle={formatLastSeen(partnerStatus)}
           showBack 
           rightElement={
             <View className="flex-row items-center">
@@ -510,6 +586,17 @@ const ChatScreen = () => {
         />
       )}
 
+      {typingUsers.length > 0 && (
+        <View className="px-4 py-2">
+          <View className="flex-row items-center">
+            <View className="w-2 h-2 bg-primary rounded-full mr-2 animate-pulse" />
+            <Text className="text-primary text-sm font-medium">
+              {typingUsers.length === 1 ? `${chatPartner.displayName} is typing...` : 'Someone is typing...'}
+            </Text>
+          </View>
+        </View>
+      )}
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
@@ -534,7 +621,7 @@ const ChatScreen = () => {
                   placeholderTextColor="#464752"
                   multiline
                   value={inputText}
-                  onChangeText={setInputText}
+                  onChangeText={handleInputChange}
                 />
                 <TouchableOpacity className="ml-2">
                    <Smile size={20} color="#464752" />

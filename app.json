@@ -32,7 +32,9 @@
       "expo-av",
       "expo-contacts",
       "expo-image-picker",
-      "expo-notifications"
+      "expo-notifications",
+      "expo-barcode-scanner",
+      "expo-dev-client"
     ]
   }
 }

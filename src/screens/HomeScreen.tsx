@@ -6,12 +6,14 @@ import { MessageCircle, Users, CircleDashed, Settings as SettingsIcon, Search, C
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import { fetchStories, uploadStory, deleteStory, Story } from '../services/stories';
+import { auth } from '../services/firebaseConfig';
 import StoryList from '../components/StoryList';
 import SnapCameraScreen from '../components/SnapCameraScreen';
 import SnapViewer from '../components/SnapViewer';
 import ContactsScreen from './ContactsScreen';
 import ConversationsList from '../components/ConversationsList';
 import SettingsScreen from './SettingsScreen';
+import { subscribeToFriendRequests } from '../services/social';
 import Header from '../components/ui/Header';
 
 const Tab = createBottomTabNavigator();
@@ -44,16 +46,14 @@ const StoriesScreen = () => {
   }, []);
 
   const handleAddStory = async (uri: string, filter: string = 'none') => {
-    if (user.uid) {
-      setLoading(true);
-      try {
-        await uploadStory(user.uid, user.displayName || 'User', uri, filter);
-      } catch (e) {
-        console.error("Failed to upload story:", e);
-        alert("Story upload failed: " + (e as any).message);
-      } finally {
-        loadStories();
-      }
+    setLoading(true);
+    try {
+      await uploadStory(user.uid || auth.currentUser?.uid || null, user.displayName || 'User', uri, filter);
+    } catch (e) {
+      console.error("Failed to upload story:", e);
+      alert("Story upload failed: " + (e as any).message);
+    } finally {
+      loadStories();
     }
   };
 
@@ -141,7 +141,11 @@ const StoriesScreen = () => {
           duration={10}
           filter={(activeStory as any).filter}
           onFinish={() => setActiveStory(null)}
-          onDelete={String(activeStory.userId) === String(user.uid) ? () => handleDeleteStory(activeStory.id!) : undefined}
+          onDelete={
+            (String(activeStory.userId) === String(user.uid) || String(activeStory.userId) === String(auth.currentUser?.uid))
+              ? () => handleDeleteStory(activeStory.id!)
+              : undefined
+          }
           isPaused={isPaused}
         />
       )}
@@ -163,7 +167,17 @@ const HomeScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [activeTab, setActiveTab] = useState('Chats');
+  const [requestCount, setRequestCount] = useState(0);
   const { primaryColor } = useSelector((state: RootState) => state.theme);
+  const authUser = useSelector((state: RootState) => state.auth);
+
+  useEffect(() => {
+    if (!authUser.uid) return;
+    const unsub = subscribeToFriendRequests(authUser.uid, (requests) => {
+      setRequestCount(requests.length);
+    });
+    return unsub;
+  }, [authUser.uid]);
 
   const MemoizedChats = useCallback(() => <ConversationsList searchQuery={searchQuery} />, [searchQuery]);
   const MemoizedContacts = useCallback(() => <ContactsScreen searchQuery={searchQuery} />, [searchQuery]);
@@ -266,6 +280,8 @@ const HomeScreen = () => {
             name="Contacts" 
             children={MemoizedContacts}
             options={{
+              tabBarBadge: requestCount > 0 ? requestCount : undefined,
+              tabBarBadgeStyle: { backgroundColor: '#ff6e85', color: 'white', fontSize: 10 },
               tabBarIcon: ({ color, focused }) => (
                 <View style={focused ? FOCUSED_ICON_STYLE : UNFOCUSED_ICON_STYLE}>
                   <Users size={22} color="white" />

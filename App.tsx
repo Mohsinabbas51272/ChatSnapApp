@@ -1,3 +1,4 @@
+import "./global.css";
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -9,7 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './src/services/firebaseConfig';
-import "./global.css";
+import { requestNotificationPermissions, setupNotificationListeners } from './src/services/notifications';
 
 // Screens
 import LoginScreen from './src/screens/LoginScreen';
@@ -19,6 +20,9 @@ import HomeScreen from './src/screens/HomeScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import PrivacySettingsScreen from './src/screens/PrivacySettingsScreen';
+
+import QRProfileScreen from './src/screens/QRProfileScreen';
+import QRScannerScreen from './src/screens/QRScannerScreen';
 
 import LandingScreen from './src/screens/LandingScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
@@ -31,35 +35,47 @@ const Navigation = () => {
   const auth = useSelector((state: RootState) => state.auth);
   const { primaryColor } = useSelector((state: RootState) => state.theme);
   const dispatch = useDispatch();
-  const navigationRef = useRef<NavigationContainerRef<any>>();
+  const navigationRef = useRef<NavigationContainerRef<any>>(null);
 
   useEffect(() => {
-    const loadSession = async () => {
-      try {
-        const savedUser = await AsyncStorage.getItem('user');
-        if (savedUser) {
-          dispatch(setUser(JSON.parse(savedUser)));
-        }
-        const savedTheme = await AsyncStorage.getItem('theme');
-        if (savedTheme) {
-          dispatch(restoreTheme(JSON.parse(savedTheme)));
-        }
-      } catch (e) {
-        console.warn('Session or theme load error:', e);
+    const setupNotifications = async () => {
+      const granted = await requestNotificationPermissions();
+      if (granted) {
+        console.log('Notification permissions granted');
       }
-      // Short delay for splash screen animation
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setIsReady(true);
     };
-    loadSession();
-  }, [dispatch]);
+
+    setupNotifications();
+
+    const cleanup = setupNotificationListeners(
+      (notification) => {
+        console.log('Notification received:', notification);
+      },
+      (response) => {
+        console.log('Notification response:', response);
+        // Handle notification tap to navigate to chat
+      }
+    );
+
+    return cleanup;
+  }, []);
 
   useEffect(() => {
     if (!isReady) return;
-    if (navigationRef.current) {
-      const route = !auth.uid ? "Landing" : (auth.isNewUser && !auth.displayName ? "ProfileSetup" : "Home");
-      navigationRef.current.navigate(route);
-    }
+    
+    // Slight delay to allow splash screen animation to be seen
+    const timeout = setTimeout(() => {
+      if (navigationRef.current) {
+        const route = !auth.uid ? "Landing" : (auth.isNewUser && !auth.displayName ? "ProfileSetup" : "Home");
+        // Only navigate if we're on the Splash screen
+        const currentRoute = navigationRef.current.getCurrentRoute();
+        if (currentRoute?.name === 'Splash') {
+          navigationRef.current.navigate(route);
+        }
+      }
+    }, 2500); // Wait for splash animation
+
+    return () => clearTimeout(timeout);
   }, [auth.uid, auth.isNewUser, auth.displayName, isReady]);
 
   const isMounted = useRef(true);
@@ -75,7 +91,7 @@ const Navigation = () => {
     const updateStatus = async (status: 'online' | 'offline') => {
       try {
         if (!isMounted.current && status === 'online') return;
-        const userRef = doc(db, 'users', `user-${auth.phoneNumber}`);
+        const userRef = doc(db, 'users', auth.uid || '');
         await setDoc(userRef, {
           status,
           lastSeen: serverTimestamp(),
@@ -116,7 +132,11 @@ const Navigation = () => {
   }), [primaryColor]);
 
   return (
-    <NavigationContainer ref={navigationRef} theme={MyTheme}>
+    <NavigationContainer 
+      ref={navigationRef} 
+      theme={MyTheme}
+      onReady={() => setIsReady(true)}
+    >
       <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Splash">
         <Stack.Screen name="Splash" component={SplashScreen} />
         <Stack.Screen name="Landing" component={LandingScreen} />
@@ -128,6 +148,8 @@ const Navigation = () => {
         <Stack.Screen name="Chat" component={ChatScreen} />
         <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen name="QRProfile" component={QRProfileScreen} />
+        <Stack.Screen name="QRScanner" component={QRScannerScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

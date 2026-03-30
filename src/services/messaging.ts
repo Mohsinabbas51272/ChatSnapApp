@@ -13,9 +13,9 @@ import {
   deleteDoc,
   limit,
   or,
-  and
-} from 'firebase/firestore';
-
+  and,
+  deleteField
+} from 'firebase/firestore';import { sendLocalNotification } from './notifications';
 export interface Message {
   id?: string;
   senderId: string;
@@ -37,7 +37,7 @@ import * as FileSystem from 'expo-file-system';
 const convertToBase64 = async (uri: string): Promise<string> => {
   try {
     const base64 = await FileSystem.readAsStringAsync(uri, {
-      encoding: FileSystem.EncodingType.Base64,
+      encoding: 'base64',
     });
     return base64;
   } catch (error) {
@@ -65,17 +65,25 @@ export const sendMessage = async (message: Omit<Message, 'id' | 'timestamp' | 'v
   const conversationId = [message.senderId, message.receiverId].sort().join('_');
 
   const messagesRef = collection(db, 'messages');
-  await addDoc(messagesRef, {
-    ...message,
+  const messagePayload: any = {
+    senderId: message.senderId,
+    receiverId: message.receiverId,
+    type: message.type,
     conversationId,
+    text: message.type === 'text' ? message.text : finalMediaData,
     timer: message.timer ?? null,
     duration: message.duration ?? null,
-    text: message.type === 'text' ? message.text : finalMediaData,
     timestamp: serverTimestamp(),
     viewed: false,
     received: false,
     readAt: null,
-  });
+  };
+
+  if (message.filter !== undefined && message.filter !== null) {
+    messagePayload.filter = message.filter;
+  }
+
+  await addDoc(messagesRef, messagePayload);
 };
 
 export const addReaction = async (messageId: string, emoji: string, userId: string, currentReactions: any = {}) => {
@@ -102,7 +110,8 @@ export const addReaction = async (messageId: string, emoji: string, userId: stri
 export const subscribeToMessages = (
   userId1: string, 
   userId2: string, 
-  callback: (messages: Message[]) => void
+  callback: (messages: Message[]) => void,
+  onNewMessage?: (message: Message) => void
 ) => {
   const conversationId = [userId1, userId2].sort().join('_');
   const messagesRef = collection(db, 'messages');
@@ -127,6 +136,20 @@ export const subscribeToMessages = (
       const t2 = b.timestamp?.toMillis ? b.timestamp.toMillis() : (b.timestamp || 0);
       return t1 - t2;
     });
+
+    // Check for new messages from the other user
+    if (messages.length > 0 && onNewMessage) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.senderId !== userId1 && lastMessage.senderId !== userId2) {
+        // This shouldn't happen, but just in case
+        return;
+      }
+      
+      const otherUserId = lastMessage.senderId === userId1 ? userId2 : userId1;
+      if (lastMessage.senderId === otherUserId) {
+        onNewMessage(lastMessage);
+      }
+    }
 
     callback(messages);
   });
@@ -216,6 +239,49 @@ export const markAsViewed = async (messageId: string) => {
 export const markAsReceived = async (messageId: string) => {
   const messageRef = doc(db, 'messages', messageId);
   await updateDoc(messageRef, { received: true });
+};
+
+// Typing indicators
+export const setTypingStatus = async (conversationId: string, userId: string, isTyping: boolean) => {
+  const typingRef = doc(db, 'typing', conversationId);
+  
+  if (isTyping) {
+    await setDoc(typingRef, {
+      [userId]: {
+        timestamp: serverTimestamp(),
+        isTyping: true
+      }
+    }, { merge: true });
+  } else {
+    await updateDoc(typingRef, {
+      [userId]: deleteField()
+    });
+  }
+};
+
+export const subscribeToTypingStatus = (conversationId: string, callback: (typingUsers: string[]) => void) => {
+  const typingRef = doc(db, 'typing', conversationId);
+  
+  return onSnapshot(typingRef, (doc) => {
+    if (doc.exists()) {
+      const data = doc.data();
+      const typingUsers: string[] = [];
+      
+      Object.entries(data).forEach(([userId, status]: [string, any]) => {
+        if (status.isTyping) {
+          // Check if typing status is recent (within 3 seconds)
+          const timestamp = status.timestamp?.toMillis ? status.timestamp.toMillis() : Date.now();
+          if (Date.now() - timestamp < 3000) {
+            typingUsers.push(userId);
+          }
+        }
+      });
+      
+      callback(typingUsers);
+    } else {
+      callback([]);
+    }
+  });
 };
 export const toggleSecretChat = async (userId: string, partnerId: string, isSecret: boolean) => {
   const secretRef = doc(db, 'secretConversations', `${userId}_${partnerId}`);

@@ -1,4 +1,4 @@
-import { db, storage } from './firebaseConfig';
+import { db, storage, auth } from './firebaseConfig';
 import { 
   collection, 
   addDoc, 
@@ -22,11 +22,18 @@ export interface Story {
 
 import * as FileSystem from 'expo-file-system';
 
-export const uploadStory = async (userId: string, displayName: string, imageUri: string, filter: string = 'none') => {
+export const uploadStory = async (userId: string | null, displayName: string, imageUri: string, filter: string = 'none') => {
   try {
+    const authUid = auth.currentUser?.uid;
+    const ownerId = userId || authUid;
+
+    if (!ownerId) {
+      throw new Error('Unable to upload story: missing authenticated user ID');
+    }
+
     // Read the image as a Base64 string
     const base64 = await FileSystem.readAsStringAsync(imageUri, {
-      encoding: FileSystem.EncodingType.Base64,
+      encoding: 'base64',
     });
     
     // Prefix with data URI header
@@ -34,7 +41,7 @@ export const uploadStory = async (userId: string, displayName: string, imageUri:
     
     const storiesRef = collection(db, 'stories');
     await addDoc(storiesRef, {
-      userId,
+      userId: ownerId,
       displayName,
       imageUri: imageData,
       filter,

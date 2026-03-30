@@ -1,5 +1,5 @@
 import React, { memo, useCallback } from 'react';
-import { View, Text, TouchableOpacity, Image, ScrollView, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ScrollView, StatusBar, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../store/authSlice';
@@ -9,6 +9,8 @@ import Header from '../components/ui/Header';
 import { useNavigation } from '@react-navigation/native';
 import { setTheme, setMood } from '../store/themeSlice';
 import ScreenBackground from '../components/ui/ScreenBackground';
+import { subscribeToFriends } from '../services/social';
+import { QrCode, X, Copy } from 'lucide-react-native';
 
 const themeColors = [
   { name: 'Electric', color: '#9ba8ff' },
@@ -41,6 +43,16 @@ const SettingsScreen = () => {
     const { primaryColor, themeName, mood } = useSelector((state: RootState) => state.theme);
     const dispatch = useDispatch();
     const navigation = useNavigation<any>();
+    const [friendCount, setFriendCount] = React.useState(0);
+    const [showQR, setShowQR] = React.useState(false);
+
+    React.useEffect(() => {
+        if (!user.uid) return;
+        const unsub = subscribeToFriends(user.uid, (friends) => {
+            setFriendCount(friends.length);
+        });
+        return unsub;
+    }, [user.uid]);
 
     const handleLogout = useCallback(() => {
         dispatch(logout());
@@ -55,7 +67,7 @@ const SettingsScreen = () => {
     }, [dispatch]);
 
     return (
-        <ScreenBackground>
+        <ScreenBackground showBubbles={false}>
             <StatusBar barStyle="light-content" backgroundColor={primaryColor} />
             <ScrollView showsVerticalScrollIndicator={false} className="flex-1 px-5 pt-8">
                 {/* Profile Section */}
@@ -85,9 +97,9 @@ const SettingsScreen = () => {
 
                 {/* Stats Grid */}
                 <View className="flex-row mb-8">
-                    <View className="flex-1 bg-surface-container-low rounded-xl p-4 items-center border border-outline-variant/10 mr-2">
+                    <View className="flex-1 bg-surface-container-low rounded-xl p-4 items-center border border-outline-variant/10 mr-2 shadow-sm">
                         <Text className="text-xs uppercase tracking-widest text-onSurface-variant mb-1">Friends</Text>
-                        <Text className="text-xl font-bold text-primary">0</Text>
+                        <Text className="text-xl font-bold text-primary">{friendCount}</Text>
                     </View>
                     <View className="flex-1 bg-surface-container-low rounded-xl p-4 items-center border border-outline-variant/10 mx-1">
                         <Text className="text-xs uppercase tracking-widest text-onSurface-variant mb-1">Snaps</Text>
@@ -103,11 +115,19 @@ const SettingsScreen = () => {
                 <View className="flex-row mb-8">
                     <TouchableOpacity 
                         onPress={() => navigation.navigate('ProfileSetup')}
-                        className="flex-1 py-4 px-6 rounded-2xl bg-surface-container-low border border-outline-variant/10 items-center justify-center flex-row"
+                        className="flex-1 py-4 px-6 rounded-2xl bg-surface-container-low border border-outline-variant/10 items-center justify-center flex-row mr-2Shadow-sm"
                         style={{ borderLeftWidth: 4, borderLeftColor: primaryColor }}
                     >
-                        <Edit3 size={18} color={primaryColor} className="mr-2" />
+                        <Edit3 size={18} color={primaryColor} />
                         <Text className="font-bold text-onSurface ml-2">Edit Profile</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        onPress={() => setShowQR(true)}
+                        className="flex-1 py-4 px-6 rounded-2xl bg-surface-container-low border border-outline-variant/10 items-center justify-center flex-row shadow-sm"
+                        style={{ borderRightWidth: 4, borderRightColor: '#9ba8ff' }}
+                    >
+                        <QrCode size={18} color="#9ba8ff" />
+                        <Text className="font-bold text-onSurface ml-2">SnapCode</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -210,11 +230,25 @@ const SettingsScreen = () => {
 
 
                 <SettingItem icon={Bell} title="Notifications" value="Alerts & Sounds" color="#f0f0fd" />
-                <SettingItem 
-                    icon={Shield} 
-                    title="Privacy Settings" 
-                    value="Manage your privacy" 
-                    color="#ff6e85" 
+                <SettingItem
+                    icon={QrCode}
+                    title="My QR Code"
+                    value="Share your profile"
+                    color="#9ba8ff"
+                    onPress={() => navigation.navigate('QRProfile')}
+                />
+                <SettingItem
+                    icon={QrCode}
+                    title="Scan QR Code"
+                    value="Add friends by scanning"
+                    color="#5d8aff"
+                    onPress={() => navigation.navigate('QRScanner')}
+                />
+                <SettingItem
+                    icon={Shield}
+                    title="Privacy Settings"
+                    value="Manage your privacy"
+                    color="#ff6e85"
                     onPress={() => navigation.navigate('PrivacySettings')}
                 />
                 <SettingItem icon={HelpCircle} title="Help & Support" value="FAQs and contact our team" color="#e966ff" />
@@ -232,6 +266,57 @@ const SettingsScreen = () => {
                 <View className="py-8 items-center pb-32">
                     <Text className="text-onSurface-variant/40 text-[10px] uppercase tracking-widest">ChatSnap v4.2.0 • Build 992</Text>
                 </View>
+
+                {/* QR Code Modal */}
+                <Modal
+                    animationType="fade"
+                    transparent={true}
+                    visible={showQR}
+                    onRequestClose={() => setShowQR(false)}
+                >
+                    <TouchableOpacity 
+                        className="flex-1 bg-black/80 items-center justify-center"
+                        activeOpacity={1}
+                        onPress={() => setShowQR(false)}
+                    >
+                        <View className="bg-surface rounded-[40px] p-10 items-center w-[85%] border-2 border-primary/20"
+                              onStartShouldSetResponder={() => true}
+                              onResponderRelease={(e) => e.stopPropagation()}
+                        >
+                            <TouchableOpacity 
+                                className="absolute top-6 right-6 p-2 bg-surface-container-highest rounded-full"
+                                onPress={() => setShowQR(false)}
+                            >
+                                <X size={20} color="#737580" />
+                            </TouchableOpacity>
+
+                            <View className="items-center mb-8">
+                                <View className="w-16 h-16 rounded-full bg-primary/10 items-center justify-center mb-4">
+                                    <QrCode size={32} color={primaryColor} />
+                                </View>
+                                <Text className="text-2xl font-black text-onSurface tracking-tight">My SnapCode</Text>
+                                <Text className="text-onSurface-variant text-sm mt-1">Scan this to add me</Text>
+                            </View>
+
+                            <View className="p-6 bg-white rounded-3xl mb-8 shadow-2xl">
+                                <Image 
+                                    source={{ uri: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${user.uid}&bgcolor=ffffff&color=${primaryColor.replace('#', '')}` }}
+                                    style={{ width: 200, height: 200 }}
+                                />
+                            </View>
+
+                            <View className="bg-surface-container-low p-4 rounded-2xl flex-row items-center w-full mb-2">
+                                <View className="flex-1">
+                                    <Text className="text-[10px] uppercase font-bold text-onSurface-variant mb-1">User ID</Text>
+                                    <Text className="text-xs font-mono text-primary font-bold" numberOfLines={1}>{user.uid}</Text>
+                                </View>
+                                <TouchableOpacity className="p-2 ml-4">
+                                    <Copy size={18} color={primaryColor} />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </TouchableOpacity>
+                </Modal>
             </ScrollView>
         </ScreenBackground>
     );

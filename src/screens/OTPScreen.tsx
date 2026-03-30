@@ -34,16 +34,14 @@ const OTPScreen = () => {
     try {
       // Sign in anonymously for now to get a UID
       const userCredential = await signInAnonymously(auth);
-      const user = userCredential.user;
-      
-      const customUid = 'user-' + phoneNumber.replace(/\D/g, '');
-      const userDocRef = doc(db, 'users', customUid);
+      const authUid = userCredential.user.uid;
+      const userDocRef = doc(db, 'users', authUid);
       
       let finalUser: any;
 
       if (isNewUser) {
         finalUser = {
-          uid: customUid,
+          uid: authUid,
           phoneNumber: phoneNumber,
           displayName: displayName || 'Anonymous User',
           photoURL: null,
@@ -59,7 +57,7 @@ const OTPScreen = () => {
           finalUser = userSnap.data();
         } else {
           finalUser = {
-            uid: customUid,
+            uid: authUid,
             phoneNumber: phoneNumber,
             displayName: 'Anonymous User',
             photoURL: null,
@@ -73,6 +71,10 @@ const OTPScreen = () => {
       }
 
       dispatch(setUser(finalUser));
+      
+      // Navigate based on user status
+      const targetRoute = finalUser.isNewUser && !finalUser.displayName ? "ProfileSetup" : "Home";
+      navigation.replace(targetRoute);
     } catch (err: any) {
       console.error('Auth error:', err);
       setError(err.message);
