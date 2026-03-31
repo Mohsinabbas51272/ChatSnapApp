@@ -20,7 +20,7 @@ export interface Story {
   timestamp: any;
 }
 
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
 export const uploadStory = async (userId: string | null, displayName: string, imageUri: string, filter: string = 'none') => {
   try {

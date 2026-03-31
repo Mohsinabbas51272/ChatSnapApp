@@ -45,16 +45,7 @@ const ScreenBackground: React.FC<ScreenBackgroundProps> = React.memo(({
         </>
       )}
 
-      {showWatermark && (
-        <View className="absolute bottom-10 left-0 right-0 items-center justify-center opacity-30" pointerEvents="none">
-          <View className="flex-row items-center">
-            <ShieldCheck size={12} color="#666" />
-            <Text className="text-[8px] font-black uppercase tracking-widest ml-1.5 text-slate-500">
-              Hardware-Backed Encryption
-            </Text>
-          </View>
-        </View>
-      )}
+
     </View>
   );
 });

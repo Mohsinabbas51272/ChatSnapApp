@@ -99,6 +99,8 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
                 c.partnerId === conv.partnerId ? { ...c, user: { ...c.user, status: data.status } } : c
               ));
             }
+          }, (error) => {
+            console.warn('Snapshot error in User Status listener:', error.message);
           });
           globalStatusUnsubscribers.set(conv.partnerId, unsub);
         }

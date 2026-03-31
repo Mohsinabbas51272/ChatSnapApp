@@ -5,12 +5,14 @@ interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
   containerClassName?: string;
+  inputContainerClassName?: string;
 }
 
 const Input: React.FC<InputProps> = ({ 
   label, 
   error, 
   containerClassName = '', 
+  inputContainerClassName = '',
   ...props 
 }) => {
   return (
@@ -19,13 +21,14 @@ const Input: React.FC<InputProps> = ({
         <Text className="text-outline text-[10px] font-bold uppercase tracking-widest mb-2 ml-1">{label}</Text>
       )}
       <View 
-        className={`bg-surface-container-low rounded-2xl px-5 py-4 border ${
+        className={`bg-surface-container-low rounded-2xl py-4 border ${
           error ? 'border-secondary' : 'border-outline-variant/10'
-        }`}
+        } ${inputContainerClassName || 'px-5'}`}
       >
         <TextInput
-          className="text-onSurface text-base font-medium"
+          className="text-onSurface font-medium p-0"
           placeholderTextColor="#464752"
+          textAlignVertical="center"
           {...props}
         />
       </View>

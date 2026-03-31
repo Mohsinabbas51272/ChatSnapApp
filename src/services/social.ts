@@ -88,6 +88,8 @@ export const subscribeToFriendRequests = (userId: string, callback: (requests: F
       requests.push({ ...(doc.data() as FriendRequest), id: doc.id });
     });
     callback(requests);
+  }, (error) => {
+    console.warn('Snapshot error in subscribeToFriendRequests:', error.message);
   });
 };
 
@@ -104,6 +106,8 @@ export const subscribeToFriends = (userId: string, callback: (friendIds: string[
       if (friendId) friendIds.push(friendId);
     });
     callback(friendIds);
+  }, (error) => {
+    console.warn('Snapshot error in subscribeToFriends:', error.message);
   });
 };
 
@@ -118,5 +122,7 @@ export const subscribeToSentRequests = (userId: string, callback: (requestedIds:
       requestedIds.push(doc.data().toId);
     });
     callback(requestedIds);
+  }, (error) => {
+    console.warn('Snapshot error in subscribeToSentRequests:', error.message);
   });
 };

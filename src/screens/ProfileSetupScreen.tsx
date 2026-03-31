@@ -6,7 +6,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { setUser } from '../store/authSlice';
 import { RootState } from '../store';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useNavigation } from '@react-navigation/native';
 import { db } from '../services/firebaseConfig';
 import { doc, setDoc } from 'firebase/firestore';

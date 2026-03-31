@@ -1,4 +1,3 @@
-import { db } from './firebaseConfig';
 import { 
   collection,
   addDoc,
@@ -15,7 +14,10 @@ import {
   or,
   and,
   deleteField
-} from 'firebase/firestore';import { sendLocalNotification } from './notifications';
+} from 'firebase/firestore';
+import * as Manipulator from 'expo-image-manipulator';
+import { db } from './firebaseConfig';
+import { sendLocalNotification } from './notifications';
 export interface Message {
   id?: string;
   senderId: string;
@@ -32,14 +34,25 @@ export interface Message {
   filter?: string;
 }
 
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
-const convertToBase64 = async (uri: string): Promise<string> => {
+const convertToBase64 = async (uri: string, type: 'snap' | 'image' | 'voice'): Promise<string> => {
   try {
-    const base64 = await FileSystem.readAsStringAsync(uri, {
-      encoding: 'base64',
-    });
-    return base64;
+    if (type === 'snap' || type === 'image') {
+      // Aggressive compression and resizing for database-only storage
+      const result = await Manipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 800 } }], // Max width 800px
+        { compress: 0.5, format: Manipulator.SaveFormat.JPEG, base64: true }
+      );
+      return `data:image/jpeg;base64,${result.base64}`;
+    } else {
+      // Voice notes still use standard base64
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: 'base64',
+      });
+      return `data:audio/m4a;base64,${base64}`;
+    }
   } catch (error) {
     console.error('Error converting to base64:', error);
     throw error;
@@ -49,16 +62,12 @@ const convertToBase64 = async (uri: string): Promise<string> => {
 export const sendMessage = async (message: Omit<Message, 'id' | 'timestamp' | 'viewed'>) => {
   let finalMediaData = '';
   
-  if (message.type === 'snap' || message.type === 'image') {
-    if (message.text.includes('/') || message.text.includes('file:')) {
-      const base64 = await convertToBase64(message.text);
-      finalMediaData = `data:image/jpeg;base64,${base64}`;
+  if (message.type === 'snap' || message.type === 'image' || message.type === 'voice') {
+    if (message.text.startsWith('file:') || message.text.startsWith('/') || !message.text.startsWith('http')) {
+      finalMediaData = await convertToBase64(message.text, message.type);
     } else {
       finalMediaData = message.text;
     }
-  } else if (message.type === 'voice') {
-      const base64 = await convertToBase64(message.text);
-      finalMediaData = `data:audio/m4a;base64,${base64}`;
   }
 
   // Generate a consistent conversation ID (sorted UIDs)
@@ -132,8 +141,8 @@ export const subscribeToMessages = (
     
     // Sort in memory instead of on Firestore server to avoid index requirement
     messages.sort((a, b) => {
-      const t1 = a.timestamp?.toMillis ? a.timestamp.toMillis() : (a.timestamp || 0);
-      const t2 = b.timestamp?.toMillis ? b.timestamp.toMillis() : (b.timestamp || 0);
+      const t1 = a.timestamp?.toMillis ? a.timestamp.toMillis() : (a.timestamp?.seconds ? a.timestamp.seconds * 1000 : Date.now() + 100);
+      const t2 = b.timestamp?.toMillis ? b.timestamp.toMillis() : (b.timestamp?.seconds ? b.timestamp.seconds * 1000 : Date.now() + 100);
       return t1 - t2;
     });
 
@@ -152,6 +161,8 @@ export const subscribeToMessages = (
     }
 
     callback(messages);
+  }, (error) => {
+    console.warn('Snapshot error in subscribeToMessages:', error.message);
   });
 };
 
@@ -215,11 +226,15 @@ export const subscribeToConversations = (
   const sentUnsub = onSnapshot(sentQuery, (snapshot) => {
     sentMessages = snapshot.docs.map(doc => ({ ...(doc.data() as Message), id: doc.id }));
     updateList();
+  }, (error) => {
+    console.warn('Snapshot error in subscribeToConversations (sent):', error.message);
   });
 
   const receivedUnsub = onSnapshot(receivedQuery, (snapshot) => {
     receivedMessages = snapshot.docs.map(doc => ({ ...(doc.data() as Message), id: doc.id }));
     updateList();
+  }, (error) => {
+    console.warn('Snapshot error in subscribeToConversations (received):', error.message);
   });
 
   return () => {
@@ -281,6 +296,8 @@ export const subscribeToTypingStatus = (conversationId: string, callback: (typin
     } else {
       callback([]);
     }
+  }, (error) => {
+    console.warn('Snapshot error in subscribeToTypingStatus:', error.message);
   });
 };
 export const toggleSecretChat = async (userId: string, partnerId: string, isSecret: boolean) => {
@@ -304,6 +321,8 @@ export const subscribeToSecretConversations = (userId: string, callback: (secret
       ids.push(doc.data().partnerId);
     });
     callback(ids);
+  }, (error) => {
+    console.warn('Snapshot error in subscribeToSecretConversations:', error.message);
   });
 };
 

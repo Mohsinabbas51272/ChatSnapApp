@@ -6,7 +6,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { setUser } from '../store/authSlice';
 import { auth, db } from '../services/firebaseConfig';
 import { signInAnonymously } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, query, collection, where, getDocs } from 'firebase/firestore';
 import Header from '../components/ui/Header';
 import Input from '../components/ui/Input';
 import { RootState } from '../store';
@@ -32,49 +32,43 @@ const OTPScreen = () => {
 
     setLoading(true);
     try {
-      // Sign in anonymously for now to get a UID
-      const userCredential = await signInAnonymously(auth);
-      const authUid = userCredential.user.uid;
-      const userDocRef = doc(db, 'users', authUid);
+      // 1. Check if user already exists with this phone number
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('phoneNumber', '==', phoneNumber));
+      const querySnapshot = await getDocs(q);
       
-      let finalUser: any;
+      let finalUser: any = null;
 
-      if (isNewUser) {
+      if (!querySnapshot.empty) {
+        // User exists - log them in with existing data
+        finalUser = { ...querySnapshot.docs[0].data(), id: querySnapshot.docs[0].id };
+        console.log('Existing user found:', finalUser.uid);
+      } else {
+        // New user - sign in and create document
+        const userCredential = await signInAnonymously(auth);
+        const authUid = userCredential.user.uid;
+        const userDocRef = doc(db, 'users', authUid);
+        
         finalUser = {
           uid: authUid,
           phoneNumber: phoneNumber,
           displayName: displayName || 'Anonymous User',
           photoURL: null,
-          isNewUser: false,
+          isNewUser: true,
           createdAt: new Date().toISOString(),
           status: 'online',
           lastSeen: new Date().toISOString()
         };
+        
         await setDoc(userDocRef, finalUser);
-      } else {
-        const userSnap = await getDoc(userDocRef);
-        if (userSnap.exists()) {
-          finalUser = userSnap.data();
-        } else {
-          finalUser = {
-            uid: authUid,
-            phoneNumber: phoneNumber,
-            displayName: 'Anonymous User',
-            photoURL: null,
-            isNewUser: false,
-            createdAt: new Date().toISOString(),
-            status: 'online',
-            lastSeen: new Date().toISOString()
-          };
-          await setDoc(userDocRef, finalUser);
-        }
+        console.log('New user created:', authUid);
       }
 
       dispatch(setUser(finalUser));
       
-      // Navigate based on user status
-      const targetRoute = finalUser.isNewUser && !finalUser.displayName ? "ProfileSetup" : "Home";
-      navigation.replace(targetRoute);
+      // Navigate based on user status (if they have a name and photo, go home)
+      const shouldSetup = finalUser.isNewUser || !finalUser.displayName;
+      navigation.replace(shouldSetup ? "ProfileSetup" : "Home");
     } catch (err: any) {
       console.error('Auth error:', err);
       setError(err.message);
@@ -125,7 +119,8 @@ const OTPScreen = () => {
                 }}
                 autoFocus
                 textAlign="center"
-                style={{ fontSize: 32, letterSpacing: 8, fontWeight: 'bold' }}
+                style={{ fontSize: 32, letterSpacing: 8, fontWeight: 'bold', paddingLeft: 8, lineHeight: 40 }}
+                inputContainerClassName="px-0 py-6"
                 error={error}
               />
             </View>

@@ -61,21 +61,36 @@ const Navigation = () => {
   }, []);
 
   useEffect(() => {
-    if (!isReady) return;
+    if (!isReady || !navigationRef.current) return;
     
-    // Slight delay to allow splash screen animation to be seen
-    const timeout = setTimeout(() => {
-      if (navigationRef.current) {
-        const route = !auth.uid ? "Landing" : (auth.isNewUser && !auth.displayName ? "ProfileSetup" : "Home");
-        // Only navigate if we're on the Splash screen
-        const currentRoute = navigationRef.current.getCurrentRoute();
-        if (currentRoute?.name === 'Splash') {
-          navigationRef.current.navigate(route);
-        }
-      }
-    }, 2500); // Wait for splash animation
+    const currentRoute = navigationRef.current.getCurrentRoute();
+    const targetRoute = !auth.uid ? "Landing" : (auth.isNewUser && !auth.displayName ? "ProfileSetup" : "Home");
 
-    return () => clearTimeout(timeout);
+    // Splash navigation after delay
+    if (currentRoute?.name === 'Splash') {
+      const timeout = setTimeout(() => {
+        navigationRef.current?.navigate(targetRoute as never);
+      }, 2500);
+      return () => clearTimeout(timeout);
+    }
+
+    // Handle logout: if not authenticated and not on an auth screen, go to Landing
+    const authScreens = ['Landing', 'Login', 'Register', 'OTP', 'Splash'];
+    if (!auth.uid && !authScreens.includes(currentRoute?.name || '')) {
+      navigationRef.current.reset({
+        index: 0,
+        routes: [{ name: 'Landing' as never }],
+      });
+    }
+
+    // Handle login: if authenticated and we're currently on an auth screen (excluding OTP/ProfileSetup logic)
+    if (auth.uid && authScreens.includes(currentRoute?.name || '') && currentRoute?.name !== 'Splash') {
+       navigationRef.current.reset({
+        index: 0,
+        routes: [{ name: targetRoute as never }],
+      });
+    }
+
   }, [auth.uid, auth.isNewUser, auth.displayName, isReady]);
 
   const isMounted = useRef(true);

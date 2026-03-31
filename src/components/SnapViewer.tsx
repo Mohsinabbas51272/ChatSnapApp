@@ -16,7 +16,7 @@ interface SnapViewerProps {
 
 const { width } = Dimensions.get('window');
 
-import { Sparkles, Smile, Glasses, User, Image as ImageIcon, Trash } from 'lucide-react-native';
+import { Sparkles, Smile, Glasses, User, Image as ImageIcon, Trash, ChevronLeft } from 'lucide-react-native';
 
 const SnapViewer = React.memo(({ isVisible, imageUri, duration, filter, onFinish, onInterrupted, onDelete, isPaused }: SnapViewerProps) => {
   const [timeLeft, setTimeLeft] = useState(duration);
@@ -89,7 +89,7 @@ const SnapViewer = React.memo(({ isVisible, imageUri, duration, filter, onFinish
   }));
 
   return (
-    <Modal visible={isVisible} transparent={false} animationType="fade">
+    <Modal visible={isVisible} transparent={false} animationType="fade" onRequestClose={onFinish}>
       <View className="flex-1 bg-surface">
         <Image source={{ uri: imageUri }} className="flex-1" resizeMode="cover" />
         
@@ -109,7 +109,13 @@ const SnapViewer = React.memo(({ isVisible, imageUri, duration, filter, onFinish
         {/* Glassmorphic overlay with gradient */}
         <View className="absolute inset-0 bg-surface/40" style={{ borderTopLeftRadius: 24, borderTopRightRadius: 24 }} pointerEvents="none" />
         <SafeAreaView className="absolute top-0 left-0 right-0 p-4" style={{ zIndex: 100 }}>
-          <View className="flex-row justify-between items-center px-2">
+          <View className="flex-row justify-between items-center px-1">
+             <TouchableOpacity 
+                onPress={onFinish}
+                className="w-10 h-10 mr-2 rounded-full items-center justify-center bg-black/20"
+             >
+                <ChevronLeft size={24} color="white" />
+             </TouchableOpacity>
              <View className="flex-1 mr-4 h-1.5 bg-white/10 rounded-full overflow-hidden">
                 <Animated.View 
                   className="h-full rounded-full" 

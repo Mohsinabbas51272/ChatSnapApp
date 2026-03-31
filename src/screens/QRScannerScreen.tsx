@@ -1,22 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, TextInput, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import Header from '../components/ui/Header';
 import ScreenBackground from '../components/ui/ScreenBackground';
-import { QrCode, RotateCcw, Keyboard } from 'lucide-react-native';
+import { QrCode, RotateCcw, Keyboard, Camera as CameraIcon } from 'lucide-react-native';
 import { sendFriendRequest } from '../services/social';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 
-// Fallback QR scanner that doesn't require native modules
 const QRScannerScreen = () => {
   const [manualCode, setManualCode] = useState('');
   const [isManualMode, setIsManualMode] = useState(false);
+  const [scanned, setScanned] = useState(false);
   const user = useSelector((state: RootState) => state.auth);
   const { primaryColor } = useSelector((state: RootState) => state.theme);
+  const [permission, requestPermission] = useCameraPermissions();
 
-  const handleManualAdd = async () => {
-    if (!manualCode.trim()) {
+  const handleManualAdd = async (code: string) => {
+    if (!code.trim()) {
       Alert.alert('Error', 'Please enter a friend code');
       return;
     }
@@ -25,16 +27,17 @@ const QRScannerScreen = () => {
       // Try to parse as JSON first (for QR codes)
       let profileData: any;
       try {
-        profileData = JSON.parse(manualCode);
+        profileData = JSON.parse(code);
       } catch {
         // If not JSON, treat as plain UID
-        profileData = { uid: manualCode.trim(), type: 'chatsnap_profile', displayName: 'Friend' };
+        profileData = { uid: code.trim(), type: 'chatsnap_profile', displayName: 'Friend' };
       }
 
       if (profileData.uid) {
         // Check if it's not the current user
         if (profileData.uid === user.uid) {
           Alert.alert('Oops!', 'This is your own code!');
+          setScanned(false);
           return;
         }
 
@@ -42,7 +45,11 @@ const QRScannerScreen = () => {
           'Add Friend',
           `Add ${profileData.displayName || 'this user'} as a friend?`,
           [
-            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Cancel', 
+              style: 'cancel',
+              onPress: () => setScanned(false)
+            },
             {
               text: 'Add',
               onPress: async () => {
@@ -50,8 +57,10 @@ const QRScannerScreen = () => {
                   await sendFriendRequest(profileData.uid, user.displayName || 'Anonymous', user.photoURL || undefined);
                   Alert.alert('Success!', 'Friend request sent!');
                   setManualCode('');
+                  setScanned(false);
                 } catch (error: any) {
                   Alert.alert('Error', error.message);
+                  setScanned(false);
                 }
               }
             }
@@ -59,81 +68,131 @@ const QRScannerScreen = () => {
         );
       } else {
         Alert.alert('Invalid Code', 'Please enter a valid friend code');
+        setScanned(false);
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to process the code. Please try again.');
+      setScanned(false);
     }
   };
+
+  const handleBarCodeScanned = ({ data }: { data: string }) => {
+    if (scanned) return;
+    setScanned(true);
+    handleManualAdd(data);
+  };
+
+  if (!permission) {
+    // Camera permissions are still loading
+    return <View />;
+  }
+
+  if (!permission.granted) {
+    // Camera permissions are not granted yet
+    return (
+      <ScreenBackground>
+        <Header title="Add Friend" showBack />
+        <View className="flex-1 items-center justify-center px-8">
+          <CameraIcon size={64} color="#737580" className="mb-4" />
+          <Text className="text-onSurface text-center text-lg font-bold mb-4">
+            Camera Permission Needed
+          </Text>
+          <Text className="text-onSurface-variant text-center mb-8">
+            We need your permission to show the camera and scan QR codes.
+          </Text>
+          <TouchableOpacity
+            onPress={requestPermission}
+            className="bg-primary px-8 py-4 rounded-full"
+            style={{ backgroundColor: primaryColor }}
+          >
+            <Text className="text-white font-bold">Grant Permission</Text>
+          </TouchableOpacity>
+        </View>
+      </ScreenBackground>
+    );
+  }
 
   return (
     <ScreenBackground>
       <StatusBar style="light" backgroundColor={primaryColor} />
       <Header title="Add Friend" showBack />
 
-      <View className="flex-1 px-6">
+      <View className="flex-1">
         {!isManualMode ? (
-          // QR Scanner UI (placeholder)
-          <View className="flex-1 items-center justify-center">
-            <View className="w-64 h-64 border-2 border-white/50 rounded-2xl items-center justify-center mb-8">
-              <QrCode size={80} color="#d1d5db" />
-              <Text className="text-white text-center mt-4 text-sm">
-                QR Scanner Unavailable
+          <View className="flex-1">
+            <CameraView
+              onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+              barcodeScannerSettings={{
+                barcodeTypes: ["qr"],
+              }}
+              style={StyleSheet.absoluteFillObject}
+            />
+            {/* Overlay */}
+            <View className="flex-1 items-center justify-center bg-black/40">
+              <View className="w-72 h-72 border-2 border-white/80 rounded-3xl items-center justify-center relative">
+                 {/* Corner decorations */}
+                 <View className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 rounded-tl-xl" style={{ borderColor: primaryColor }} />
+                 <View className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 rounded-tr-xl" style={{ borderColor: primaryColor }} />
+                 <View className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 rounded-bl-xl" style={{ borderColor: primaryColor }} />
+                 <View className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 rounded-br-xl" style={{ borderColor: primaryColor }} />
+                 
+                 {scanned && (
+                   <View className="bg-primary/90 px-6 py-2 rounded-full">
+                     <Text className="text-white font-bold">Processing...</Text>
+                   </View>
+                 )}
+              </View>
+              <Text className="text-white text-center mt-10 text-lg font-bold">
+                 Align QR Code to scan
               </Text>
+              
+              <TouchableOpacity
+                onPress={() => setIsManualMode(true)}
+                className="absolute bottom-20 bg-white/20 px-8 py-4 rounded-full flex-row items-center border border-white/10"
+              >
+                <Keyboard size={20} color="white" />
+                <Text className="text-white font-bold ml-3">Enter Code Manually</Text>
+              </TouchableOpacity>
             </View>
-
-            <Text className="text-white text-center text-lg font-bold mb-2">
-              Native Camera Module Issue
-            </Text>
-            <Text className="text-white/80 text-center mb-8 px-4">
-              The QR scanner requires native modules that aren't available in Expo Go. Use manual entry instead.
-            </Text>
-
-            <TouchableOpacity
-              onPress={() => setIsManualMode(true)}
-              className="bg-primary px-8 py-4 rounded-lg flex-row items-center"
-            >
-              <Keyboard size={20} color="white" className="mr-2" />
-              <Text className="text-onPrimary font-semibold ml-2">Enter Code Manually</Text>
-            </TouchableOpacity>
           </View>
         ) : (
-          // Manual entry mode
-          <View className="flex-1 justify-center">
-            <View className="bg-white/10 rounded-2xl p-6 mb-6">
-              <Text className="text-white text-center text-lg font-bold mb-4">
+          <View className="flex-1 px-6 justify-center">
+            <View className="bg-surface-container-low rounded-3xl p-8 border border-outline-variant/10 shadow-xl">
+              <View className="w-16 h-16 bg-primary/10 rounded-full items-center justify-center mx-auto mb-6">
+                 <Keyboard size={32} color={primaryColor} />
+              </View>
+              <Text className="text-onSurface text-center text-2xl font-black mb-2 tracking-tight">
                 Enter Friend Code
+              </Text>
+              <Text className="text-onSurface-variant text-center mb-8">
+                Paste the unique friend code or raw QR data shared with you.
               </Text>
 
               <TextInput
                 value={manualCode}
                 onChangeText={setManualCode}
-                placeholder="Paste friend code or QR data here..."
-                placeholderTextColor="#9ca3af"
-                className="bg-white/20 text-white px-4 py-3 rounded-lg mb-4"
+                placeholder="Paste code here..."
+                placeholderTextColor="#464752"
+                className="bg-surface-container-highest text-onSurface px-6 py-5 rounded-2xl mb-6 text-sm font-mono border border-outline-variant/10"
                 multiline
                 numberOfLines={4}
                 textAlignVertical="top"
               />
 
               <TouchableOpacity
-                onPress={handleManualAdd}
-                className="bg-primary px-6 py-3 rounded-lg items-center mb-4"
+                onPress={() => handleManualAdd(manualCode)}
+                className="py-4 rounded-full items-center mb-4"
+                style={{ backgroundColor: primaryColor }}
               >
-                <Text className="text-onPrimary font-semibold">Add Friend</Text>
+                <Text className="text-white font-bold text-lg">Add Friend</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={() => setIsManualMode(false)}
-                className="items-center"
+                className="items-center py-2"
               >
-                <Text className="text-white/70">← Back to Scanner</Text>
+                <Text className="text-primary font-bold">Switch to Camera</Text>
               </TouchableOpacity>
-            </View>
-
-            <View className="bg-white/5 rounded-lg p-4">
-              <Text className="text-white/80 text-sm text-center">
-                Ask your friend to share their QR code data, or use their user ID if you have it.
-              </Text>
             </View>
           </View>
         )}

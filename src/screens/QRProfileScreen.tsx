@@ -72,29 +72,39 @@ const QRProfileScreen = () => {
           </Text>
 
           <View className="w-full space-y-4">
-            <TouchableOpacity
-              onPress={handleShare}
-              className="flex-row items-center justify-center py-4 px-6 bg-surface-container-low rounded-2xl"
-            >
-              <Share2 size={20} color={primaryColor} />
-              <Text className="ml-3 text-onSurface font-bold">Share Profile</Text>
-            </TouchableOpacity>
+            <View className="bg-surface-container-low p-5 rounded-3xl border border-outline-variant/10 shadow-sm mb-2">
+                <Text className="text-[10px] uppercase font-black text-primary tracking-widest mb-3 text-center">My Friend Code</Text>
+                <View className="flex-row items-center bg-surface-container-highest px-4 py-3 rounded-2xl border border-outline-variant/5">
+                   <Text className="flex-1 text-onSurface font-mono text-xs font-bold" numberOfLines={1}>{user.uid}</Text>
+                   <TouchableOpacity 
+                    onPress={async () => {
+                      await Clipboard.setString(user.uid || '');
+                      Alert.alert('Copied!', 'Friend code copied to clipboard');
+                    }}
+                    className="p-2 ml-2 bg-primary/10 rounded-full"
+                   >
+                      <Copy size={16} color={primaryColor} />
+                   </TouchableOpacity>
+                </View>
+                <Text className="text-[10px] text-onSurface-variant text-center mt-3 font-medium px-4">
+                  Share this code with friends who can't scan your QR code to add you manually.
+                </Text>
+            </View>
 
             <TouchableOpacity
-              onPress={handleCopyLink}
-              className="flex-row items-center justify-center py-4 px-6 bg-surface-container-low rounded-2xl"
+              onPress={handleShare}
+              className="flex-row items-center justify-center py-4 px-6 bg-surface-container-low rounded-2xl border border-outline-variant/5"
             >
-              <Copy size={20} color={primaryColor} />
-              <Text className="ml-3 text-onSurface font-bold">Copy Profile Link</Text>
+              <Share2 size={20} color={primaryColor} />
+              <Text className="ml-3 text-onSurface font-bold text-base">Share Profile Link</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => setShowRawData(!showRawData)}
-              className="flex-row items-center justify-center py-4 px-6 bg-surface-container-low rounded-2xl"
+              className="flex-row items-center justify-center py-3 px-6 bg-transparent"
             >
-              {showRawData ? <EyeOff size={20} color={primaryColor} /> : <Eye size={20} color={primaryColor} />}
-              <Text className="ml-3 text-onSurface font-bold">
-                {showRawData ? 'Hide' : 'Show'} Raw Data
+              <Text className="text-onSurface-variant font-bold text-xs uppercase tracking-widest">
+                {showRawData ? 'Hide' : 'Show'} Advanced Info
               </Text>
             </TouchableOpacity>
           </View>

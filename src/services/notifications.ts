@@ -1,17 +1,30 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
-// Configure notification handler
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+// Detect if we are running in Expo Go
+const isExpoGo = Constants.appOwnership === 'expo';
+const shouldDisableNotifications = isExpoGo && Platform.OS === 'android';
+
+// Configure notification handler (only if supported)
+if (!shouldDisableNotifications) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+} else {
+  console.log('Push notifications are disabled in Expo Go on Android (Removed in SDK 53)');
+}
 
 // Request permissions
 export const requestNotificationPermissions = async () => {
+  if (shouldDisableNotifications) return true; // Pretend it's granted to avoid alerts
+
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
@@ -39,12 +52,17 @@ export const requestNotificationPermissions = async () => {
 
 // Get push token
 export const getPushToken = async () => {
+  if (shouldDisableNotifications) return null;
   const token = await Notifications.getExpoPushTokenAsync();
   return token.data;
 };
 
 // Send local notification
 export const sendLocalNotification = async (title: string, body: string, data?: any) => {
+  if (shouldDisableNotifications) {
+     console.log('Local Notification (Skipped):', title, body);
+     return;
+  }
   await Notifications.scheduleNotificationAsync({
     content: {
       title,
@@ -60,6 +78,9 @@ export const setupNotificationListeners = (
   onNotificationReceived: (notification: Notifications.Notification) => void,
   onNotificationResponse: (response: Notifications.NotificationResponse) => void
 ) => {
+  if (shouldDisableNotifications) {
+    return () => {};
+  }
   const receivedSubscription = Notifications.addNotificationReceivedListener(onNotificationReceived);
   const responseSubscription = Notifications.addNotificationResponseReceivedListener(onNotificationResponse);
 

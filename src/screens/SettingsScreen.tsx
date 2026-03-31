@@ -1,5 +1,5 @@
 import React, { memo, useCallback } from 'react';
-import { View, Text, TouchableOpacity, Image, ScrollView, StatusBar, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ScrollView, StatusBar, Modal, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../store/authSlice';
@@ -11,6 +11,8 @@ import { setTheme, setMood } from '../store/themeSlice';
 import ScreenBackground from '../components/ui/ScreenBackground';
 import { subscribeToFriends } from '../services/social';
 import { QrCode, X, Copy } from 'lucide-react-native';
+import { signOut } from 'firebase/auth';
+import { auth } from '../services/firebaseConfig';
 
 const themeColors = [
   { name: 'Electric', color: '#9ba8ff' },
@@ -21,11 +23,11 @@ const themeColors = [
   { name: 'Zen', color: '#778aff' },
 ];
 
-const SettingItem = memo(({ icon: Icon, title, value, color = '#f0f0fd', onPress }: any) => (
+const SettingItem = memo(({ icon: Icon, title, value, color = '#f0f0fd', onPress, hasSwitch = false, switchValue = false, onSwitchChange }: any) => (
     <TouchableOpacity 
-        onPress={onPress}
+        onPress={hasSwitch ? undefined : onPress}
         className="flex-row items-center p-5 bg-surface-container-low rounded-xl mb-2"
-        activeOpacity={0.7}
+        activeOpacity={hasSwitch ? 1 : 0.7}
     >
         <View className="w-12 h-12 rounded-full bg-surface-container-highest items-center justify-center">
             <Icon size={20} color={color} />
@@ -34,7 +36,16 @@ const SettingItem = memo(({ icon: Icon, title, value, color = '#f0f0fd', onPress
             <Text className="text-base font-semibold text-onSurface">{title}</Text>
             {value && <Text className="text-onSurface-variant text-sm mt-0.5">{value}</Text>}
         </View>
-        <ChevronRight size={18} color="#464752" />
+        {hasSwitch ? (
+            <Switch 
+                value={switchValue} 
+                onValueChange={onSwitchChange}
+                trackColor={{ false: '#222532', true: color }}
+                thumbColor={switchValue ? 'white' : '#737580'}
+            />
+        ) : (
+            <ChevronRight size={18} color="#464752" />
+        )}
     </TouchableOpacity>
 ));
 
@@ -45,6 +56,7 @@ const SettingsScreen = () => {
     const navigation = useNavigation<any>();
     const [friendCount, setFriendCount] = React.useState(0);
     const [showQR, setShowQR] = React.useState(false);
+    const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
 
     React.useEffect(() => {
         if (!user.uid) return;
@@ -54,8 +66,15 @@ const SettingsScreen = () => {
         return unsub;
     }, [user.uid]);
 
-    const handleLogout = useCallback(() => {
-        dispatch(logout());
+    const handleLogout = useCallback(async () => {
+        try {
+            await signOut(auth);
+            dispatch(logout());
+        } catch (error) {
+            console.error('Logout failed', error);
+            // Even if firebase fails, we should clear state
+            dispatch(logout());
+        }
     }, [dispatch]);
 
     const handleThemeChange = useCallback((colorObj: any) => {
@@ -229,7 +248,15 @@ const SettingsScreen = () => {
 
 
 
-                <SettingItem icon={Bell} title="Notifications" value="Alerts & Sounds" color="#f0f0fd" />
+                <SettingItem 
+                    icon={Bell} 
+                    title="Notifications" 
+                    value={notificationsEnabled ? "Alerts & Sounds enabled" : "Muted"} 
+                    color={primaryColor} 
+                    hasSwitch={true}
+                    switchValue={notificationsEnabled}
+                    onSwitchChange={setNotificationsEnabled}
+                />
                 <SettingItem
                     icon={QrCode}
                     title="My QR Code"

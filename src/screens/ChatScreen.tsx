@@ -22,6 +22,13 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import { sendMessage, subscribeToMessages, Message, markAsViewed, addReaction, deleteMessage, setTypingStatus, subscribeToTypingStatus, markAsReceived } from '../services/messaging';
 import { useRoute, useNavigation } from '@react-navigation/native';
+import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
+
+const EMOJIS = [
+  '❤️', '😂', '🔥', '👍', '😮', '😢', '😍', '👏', '🙌', '🎉', '✨', '🤔', '😊', '😭', '🙏', '😎',
+  '💖', '🤣', '💯', '👊', '🤯', '😡', '🥰', '🤝', '💪', '🎈', '🌟', '🙄', '😌', '😩', '🥺', '😏',
+  '🖤', '😅', '💥', '👌', '😴', '🤨', '😘', '✅', '🔥', '🎊', '🌈', '🧐', '😋', '💔', '😇', '👀'
+];
 
 import SnapCameraScreen from '../components/SnapCameraScreen';
 import SnapViewer from '../components/SnapViewer';
@@ -126,7 +133,6 @@ const MessageItem = React.memo(({ item, isMe, chatPartner, onOpenSnap, onLongPre
       )}
       <View style={{ maxWidth: width * 0.75 }}>
         <TouchableOpacity 
-          disabled={(!isSnap || item.viewed || isMe) && !isMe && !isVoice} 
           onPress={() => isMe ? null : (isSnap ? onOpenSnap(item) : null)}
           onLongPress={() => onLongPress(item.id!)}
           delayLongPress={300}
@@ -167,25 +173,25 @@ const MessageItem = React.memo(({ item, isMe, chatPartner, onOpenSnap, onLongPre
              />
           ) : (
             <View>
-                <Text className={`text-base font-medium pr-6 ${isMe ? 'text-white' : 'text-white'}`}>
+                <Text className={`text-base font-medium ${isMe ? 'text-white' : 'text-white'}`}>
                 {item.text}
                 </Text>
                 {isMe && (
-                  <View className="absolute bottom-[-2] right-[-4] flex-row items-center">
+                  <View className="flex-row items-center self-end mt-1">
                       {item.viewed ? (
                         <View className="flex-row items-center">
-                          <CheckCheck size={14} color="#9ba8ff" />
-                          <Text className="text-[10px] text-primary ml-1">Read</Text>
+                          <CheckCheck size={12} color="#9ba8ff" />
+                          <Text className="text-[10px] text-primary ml-1 font-bold">Read</Text>
                         </View>
                       ) : item.received ? (
                         <View className="flex-row items-center">
-                          <CheckCheck size={14} color="rgba(255,255,255,0.5)" />
-                          <Text className="text-[10px] text-white/60 ml-1">Delivered</Text>
+                          <CheckCheck size={12} color="rgba(255,255,255,0.7)" />
+                          <Text className="text-[10px] text-white/70 ml-1">Delivered</Text>
                         </View>
                       ) : (
                         <View className="flex-row items-center">
-                          <Check size={14} color="rgba(255,255,255,0.5)" />
-                          <Text className="text-[10px] text-white/60 ml-1">Sent</Text>
+                          <Check size={12} color="rgba(255,255,255,0.7)" />
+                          <Text className="text-[10px] text-white/70 ml-1">Sent</Text>
                         </View>
                       )}
                   </View>
@@ -300,6 +306,12 @@ const ChatScreen = () => {
   const [partnerStatus, setPartnerStatus] = useState<{ status: string; lastSeen?: any }>({ status: 'offline' });
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  const handleEmojiSelect = (emoji: string) => {
+    setInputText(prev => prev + emoji);
+    // Keep focus or handle as needed
+  };
   const [recordingDuration, setRecordingDuration] = useState(0);
   const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevMessageCountRef = useRef(0);
@@ -545,63 +557,65 @@ const ChatScreen = () => {
         />
       )}
 
-      <FlatList
-        ref={flatListRef}
-        data={filteredMessages}
-        keyExtractor={(item, index) => item.id || `msg-${index}`}
-        renderItem={({ item }) => (
-          <MessageItem 
-            item={item}
-            isMe={item.senderId === currentUser.uid}
-            chatPartner={chatPartner}
-            onOpenSnap={handleOpenSnap}
-            onLongPress={handleLongPress}
-            reactionMessageId={reactionMessageId}
-            handleReaction={handleReaction}
-            handleDeleteMessage={handleDeleteMessage}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        style={{ flex: 1 }}
+      >
+        <FlatList
+          ref={flatListRef}
+          data={filteredMessages}
+          keyExtractor={(item, index) => item.id || `msg-${index}`}
+          renderItem={({ item }) => (
+            <MessageItem 
+              item={item}
+              isMe={item.senderId === currentUser.uid}
+              chatPartner={chatPartner}
+              onOpenSnap={handleOpenSnap}
+              onLongPress={handleLongPress}
+              reactionMessageId={reactionMessageId}
+              handleReaction={handleReaction}
+              handleDeleteMessage={handleDeleteMessage}
+              primaryColor={primaryColor}
+            />
+          )}
+          className="flex-1 px-4 pt-6"
+          contentContainerStyle={{ paddingBottom: 20 }}
+          showsVerticalScrollIndicator={false}
+          onContentSizeChange={() => {
+            if (filteredMessages.length > prevMessageCountRef.current) {
+              flatListRef.current?.scrollToEnd({ animated: true });
+            }
+            prevMessageCountRef.current = filteredMessages.length;
+          }}
+          // Performance optimizations
+          initialNumToRender={15}
+          maxToRenderPerBatch={10}
+          windowSize={10}
+          removeClippedSubviews={Platform.OS === 'android'}
+        />
+
+        {messages.length > 0 && messages[messages.length - 1].senderId !== currentUser.uid && !inputText.trim() && (
+          <SmartReplies 
+            lastMessage={messages[messages.length - 1].text}
+            onSelect={(reply) => setInputText(reply)}
             primaryColor={primaryColor}
           />
         )}
-        className="flex-1 px-4 pt-6"
-        contentContainerStyle={{ paddingBottom: 20 }}
-        showsVerticalScrollIndicator={false}
-        onContentSizeChange={() => {
-          if (filteredMessages.length > prevMessageCountRef.current) {
-            flatListRef.current?.scrollToEnd({ animated: true });
-          }
-          prevMessageCountRef.current = filteredMessages.length;
-        }}
-        // Performance optimizations
-        initialNumToRender={10}
-        maxToRenderPerBatch={10}
-        windowSize={5}
-        removeClippedSubviews={Platform.OS === 'android'}
-      />
 
-      {messages.length > 0 && messages[messages.length - 1].senderId !== currentUser.uid && !inputText.trim() && (
-        <SmartReplies 
-          lastMessage={messages[messages.length - 1].text}
-          onSelect={(reply) => setInputText(reply)}
-          primaryColor={primaryColor}
-        />
-      )}
-
-      {typingUsers.length > 0 && (
-        <View className="px-4 py-2">
-          <View className="flex-row items-center">
-            <View className="w-2 h-2 bg-primary rounded-full mr-2 animate-pulse" />
-            <Text className="text-primary text-sm font-medium">
-              {typingUsers.length === 1 ? `${chatPartner.displayName} is typing...` : 'Someone is typing...'}
-            </Text>
+        {typingUsers.length > 0 && (
+          <View className="px-4 py-2">
+            <View className="flex-row items-center">
+              <View className="w-2 h-2 bg-primary rounded-full mr-2 animate-pulse" />
+              <Text className="text-primary text-sm font-medium">
+                {typingUsers.length === 1 ? `${chatPartner.displayName} is typing...` : 'Someone is typing...'}
+              </Text>
+            </View>
           </View>
-        </View>
-      )}
+        )}
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-      >
-        <View className="flex-row items-end px-4 py-4 bg-surface-container-low/60">
+        <SafeAreaView edges={['bottom']} className="bg-surface-container-low/60">
+          <View className="flex-row items-end px-4 py-4">
           {!isRecording ? (
             <TouchableOpacity onPress={() => setShowCamera(true)} className="p-3 bg-surface-container-highest rounded-full mb-1">
               <Camera size={22} color="#737580" strokeWidth={2.5} />
@@ -623,10 +637,13 @@ const ChatScreen = () => {
                   value={inputText}
                   onChangeText={handleInputChange}
                 />
-                <TouchableOpacity className="ml-2">
-                   <Smile size={20} color="#464752" />
-                </TouchableOpacity>
-              </>
+                  <TouchableOpacity 
+                    onPress={() => setShowEmojiPicker(!showEmojiPicker)}
+                    className="ml-2"
+                  >
+                    <Smile size={20} color={showEmojiPicker ? primaryColor : "#464752"} />
+                  </TouchableOpacity>
+                </>
             ) : (
               <View className="flex-1 flex-row items-center justify-between">
                  <Text className="text-onSurface font-black tracking-widest uppercase text-xs">Recording...</Text>
@@ -668,7 +685,36 @@ const ChatScreen = () => {
             </TouchableOpacity>
           )}
         </View>
+        </SafeAreaView>
       </KeyboardAvoidingView>
+
+      {showEmojiPicker && (
+        <Animated.View 
+          entering={SlideInDown} 
+          exiting={SlideOutDown}
+          className="absolute bottom-24 left-4 right-4 bg-surface-container-high rounded-3xl p-4 shadow-2xl border border-outline-variant/10 z-[100]"
+        >
+          <View className="flex-row items-center justify-between mb-3 px-2">
+            <Text className="text-onSurface font-black text-xs uppercase tracking-widest">Trending Emojis</Text>
+            <TouchableOpacity onPress={() => setShowEmojiPicker(false)}>
+              <Text className="text-primary font-bold text-xs">Done</Text>
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={EMOJIS}
+            keyExtractor={item => item}
+            numColumns={8}
+            renderItem={({ item }) => (
+              <TouchableOpacity 
+                onPress={() => handleEmojiSelect(item)}
+                className="flex-1 items-center justify-center py-2"
+              >
+                <Text className="text-2xl">{item}</Text>
+              </TouchableOpacity>
+            )}
+          />
+        </Animated.View>
+      )}
 
       <SnapCameraScreen 
         isVisible={showCamera} 
