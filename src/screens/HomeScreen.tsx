@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, RefreshControl, TouchableOpacity, TextInput, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MessageCircle, Users, CircleDashed, Settings as SettingsIcon, Search, Camera, UserRound, ChevronLeft } from 'lucide-react-native';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
-import { fetchStories, uploadStory, deleteStory, Story } from '../services/stories';
+import { fetchStories, uploadStory, deleteStory, Story, recordStoryView } from '../services/stories';
+import { sendMessage } from '../services/messaging';
 import { auth } from '../services/firebaseConfig';
-import StoryList from '../components/StoryList';
+import StoryList, { GroupedStory } from '../components/StoryList';
 import SnapCameraScreen from '../components/SnapCameraScreen';
 import SnapViewer from '../components/SnapViewer';
 import ContactsScreen from './ContactsScreen';
@@ -24,7 +25,8 @@ const StoriesScreen = () => {
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
-  const [activeStory, setActiveStory] = useState<Story | null>(null);
+  const [activeStories, setActiveStories] = useState<Story[] | null>(null);
+  const [initialStoryIndex, setInitialStoryIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const user = useSelector((state: RootState) => state.auth);
   const { primaryColor } = useSelector((state: RootState) => state.theme);
@@ -44,6 +46,27 @@ const StoriesScreen = () => {
   useEffect(() => {
     loadStories();
   }, []);
+
+  const groupedStories = useMemo(() => {
+    const groups: Map<string, GroupedStory> = new Map();
+    stories.forEach(story => {
+      const uid = String(story.userId);
+      if (!groups.has(uid)) {
+         groups.set(uid, {
+           userId: uid,
+           displayName: story.displayName,
+           stories: [],
+           hasUnread: false
+         });
+      }
+      const group = groups.get(uid)!;
+      group.stories.push(story);
+      const isRead = story.viewers?.some(v => String(v.userId) === String(user.uid)) || uid === String(user.uid);
+      if (!isRead) group.hasUnread = true;
+    });
+    
+    return Array.from(groups.values());
+  }, [stories, user.uid]);
 
   const handleAddStory = async (uri: string, filter: string = 'none') => {
     setLoading(true);
@@ -74,18 +97,47 @@ const StoriesScreen = () => {
           onPress: async () => {
              try {
                 await deleteStory(storyId);
+                setActiveStories(prev => {
+                   if (!prev) return null;
+                   const filtered = prev.filter(s => s.id !== storyId);
+                   return filtered.length > 0 ? filtered : null;
+                });
              } catch (e) {
                 console.error(e);
                 Alert.alert("Error", "Failed to delete story");
              } finally {
-                setActiveStory(null);
                 loadStories();
                 setIsPaused(false);
              }
           }
         }
       ]
+
     );
+  };
+
+  const handleReply = async (text: string, story: Story) => {
+    if (!user.uid || !story.id) return;
+    try {
+      await sendMessage(
+        user.uid,
+        story.userId,
+        text,
+        'text',
+        undefined,
+        undefined,
+        undefined,
+        {
+          storyId: story.id,
+          imageUri: story.imageUri,
+          authorName: story.displayName
+        }
+      );
+      Alert.alert("Reply Sent", "Your reply has been sent to " + story.displayName);
+    } catch (e) {
+      console.error(e);
+      Alert.alert("Error", "Failed to send reply");
+    }
   };
 
   return (
@@ -95,10 +147,13 @@ const StoriesScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         <StoryList 
-          stories={stories} 
+          groupedStories={groupedStories} 
           currentUser={user} 
           onAddStory={() => setShowCamera(true)}
-          onViewStory={(s) => setActiveStory(s)}
+          onViewStory={(s, index) => {
+            setActiveStories(s);
+            setInitialStoryIndex(index);
+          }}
         />
         
         <View className="p-8 items-center justify-center mt-12 bg-surface-container-low mx-6 rounded-3xl border border-outline-variant/10">
@@ -134,18 +189,28 @@ const StoriesScreen = () => {
         onSend={(uri: string, t: number, filter: string) => handleAddStory(uri, filter)}
       />
 
-      {activeStory && (
+      {activeStories && (
         <SnapViewer 
-          isVisible={!!activeStory}
-          imageUri={activeStory.imageUri}
+          isVisible={!!activeStories}
+          stories={activeStories}
+          initialIndex={initialStoryIndex}
           duration={10}
-          filter={(activeStory as any).filter}
-          onFinish={() => setActiveStory(null)}
-          onDelete={
-            (String(activeStory.userId) === String(user.uid) || String(activeStory.userId) === String(auth.currentUser?.uid))
-              ? () => handleDeleteStory(activeStory.id!)
-              : undefined
-          }
+          userId={user.uid || ''}
+          onReply={(text, story) => handleReply(text, story)}
+          onView={async (story) => {
+             if (story.id && user.uid) {
+               await recordStoryView(story.id, user.uid, user.displayName || 'Anonymous User');
+             }
+          }}
+          onFinish={() => {
+            setActiveStories(null);
+            loadStories(); // Refresh to show new view count/viewers
+          }}
+          onDelete={(story) => {
+            if (String(story.userId) === String(user.uid) || String(story.userId) === String(auth.currentUser?.uid)) {
+              handleDeleteStory(story.id!);
+            }
+          }}
           isPaused={isPaused}
         />
       )}
@@ -170,6 +235,7 @@ const HomeScreen = () => {
   const [requestCount, setRequestCount] = useState(0);
   const { primaryColor } = useSelector((state: RootState) => state.theme);
   const authUser = useSelector((state: RootState) => state.auth);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (!authUser.uid) return;
@@ -226,9 +292,9 @@ const HomeScreen = () => {
           screenOptions={{
             headerShown: false,
             tabBarStyle: {
-              height: 85,
-              paddingBottom: 25,
-              paddingTop: 10,
+              height: 65 + insets.bottom,
+              paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
+              paddingTop: 12,
               backgroundColor: primaryColor,
               borderTopWidth: 0,
               borderTopLeftRadius: 28,
@@ -239,6 +305,9 @@ const HomeScreen = () => {
               shadowOffset: { width: 0, height: -4 },
               shadowRadius: 16,
               position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
             },
             tabBarActiveTintColor: '#FFFFFF',
             tabBarInactiveTintColor: 'rgba(255,255,255,0.6)',

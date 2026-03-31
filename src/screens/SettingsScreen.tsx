@@ -12,7 +12,8 @@ import ScreenBackground from '../components/ui/ScreenBackground';
 import { subscribeToFriends } from '../services/social';
 import { QrCode, X, Copy } from 'lucide-react-native';
 import { signOut } from 'firebase/auth';
-import { auth } from '../services/firebaseConfig';
+import { auth, db } from '../services/firebaseConfig';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 const themeColors = [
   { name: 'Electric', color: '#9ba8ff' },
@@ -55,15 +56,27 @@ const SettingsScreen = () => {
     const dispatch = useDispatch();
     const navigation = useNavigation<any>();
     const [friendCount, setFriendCount] = React.useState(0);
+    const [snapCount, setSnapCount] = React.useState(0);
     const [showQR, setShowQR] = React.useState(false);
     const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
 
     React.useEffect(() => {
         if (!user.uid) return;
-        const unsub = subscribeToFriends(user.uid, (friends) => {
+        
+        const unsubFriends = subscribeToFriends(user.uid, (friends) => {
             setFriendCount(friends.length);
         });
-        return unsub;
+
+        const unsubUser = onSnapshot(doc(db, 'users', user.uid), (snapshot) => {
+            if (snapshot.exists()) {
+                setSnapCount(snapshot.data().snapCount || 0);
+            }
+        });
+
+        return () => {
+            unsubFriends();
+            unsubUser();
+        };
     }, [user.uid]);
 
     const handleLogout = useCallback(async () => {
@@ -122,7 +135,7 @@ const SettingsScreen = () => {
                     </View>
                     <View className="flex-1 bg-surface-container-low rounded-xl p-4 items-center border border-outline-variant/10 mx-1">
                         <Text className="text-xs uppercase tracking-widest text-onSurface-variant mb-1">Snaps</Text>
-                        <Text className="text-xl font-bold text-tertiary">0</Text>
+                        <Text className="text-xl font-bold text-tertiary">{snapCount || 0}</Text>
                     </View>
                     <View className="flex-1 bg-surface-container-low rounded-xl p-4 items-center border border-outline-variant/10 ml-2">
                         <Text className="text-xs uppercase tracking-widest text-onSurface-variant mb-1">Privacy</Text>

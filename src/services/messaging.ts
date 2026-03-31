@@ -13,9 +13,10 @@ import {
   limit,
   or,
   and,
-  deleteField
+  deleteField,
+  increment
 } from 'firebase/firestore';
-import * as Manipulator from 'expo-image-manipulator';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { db } from './firebaseConfig';
 import { sendLocalNotification } from './notifications';
 export interface Message {
@@ -32,6 +33,11 @@ export interface Message {
   timer?: number;
   duration?: number;
   filter?: string;
+  storyReply?: {
+    storyId: string;
+    imageUri: string;
+    authorName: string;
+  };
 }
 
 import * as FileSystem from 'expo-file-system/legacy';
@@ -40,10 +46,10 @@ const convertToBase64 = async (uri: string, type: 'snap' | 'image' | 'voice'): P
   try {
     if (type === 'snap' || type === 'image') {
       // Aggressive compression and resizing for database-only storage
-      const result = await Manipulator.manipulateAsync(
+      const result = await manipulateAsync(
         uri,
-        [{ resize: { width: 800 } }], // Max width 800px
-        { compress: 0.5, format: Manipulator.SaveFormat.JPEG, base64: true }
+        [{ resize: { width: 600 } }], // Max width 600px for even faster loading
+        { compress: 0.4, format: SaveFormat.JPEG, base64: true }
       );
       return `data:image/jpeg;base64,${result.base64}`;
     } else {
@@ -59,40 +65,60 @@ const convertToBase64 = async (uri: string, type: 'snap' | 'image' | 'voice'): P
   }
 };
 
-export const sendMessage = async (message: Omit<Message, 'id' | 'timestamp' | 'viewed'>) => {
-  let finalMediaData = '';
-  
-  if (message.type === 'snap' || message.type === 'image' || message.type === 'voice') {
-    if (message.text.startsWith('file:') || message.text.startsWith('/') || !message.text.startsWith('http')) {
-      finalMediaData = await convertToBase64(message.text, message.type);
-    } else {
-      finalMediaData = message.text;
+export const sendMessage = async (
+  senderId: string, 
+  receiverId: string, 
+  text: string, 
+  type: 'text' | 'image' | 'snap' | 'voice' = 'text', 
+  timer?: number,
+  duration?: number,
+  filter?: string,
+  storyReply?: Message['storyReply']
+) => {
+  try {
+    if (!senderId || !receiverId) {
+      console.error('Invalid sender or receiver ID');
+      return;
     }
+
+    const conversationId = [senderId, receiverId].sort().join('_');
+    const messagesRef = collection(db, 'messages');
+    
+    let processedText = text;
+    if (type === 'image' || type === 'snap' || type === 'voice') {
+      processedText = await convertToBase64(text, type);
+    }
+
+    const messageData: any = {
+      senderId,
+      receiverId,
+      conversationId,
+      text: processedText,
+      type,
+      timestamp: serverTimestamp(),
+      viewed: false,
+      received: false,
+    };
+
+    if (timer) messageData.timer = timer;
+    if (duration) messageData.duration = duration;
+    if (filter) messageData.filter = filter;
+    if (storyReply) messageData.storyReply = storyReply;
+
+    await addDoc(messagesRef, messageData);
+
+    // Increment snap counter if message is a snap or image
+    if (type === 'snap' || type === 'image') {
+      const userRef = doc(db, 'users', senderId);
+      await updateDoc(userRef, {
+        snapCount: increment(1)
+      });
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error sending message:', error);
   }
-
-  // Generate a consistent conversation ID (sorted UIDs)
-  const conversationId = [message.senderId, message.receiverId].sort().join('_');
-
-  const messagesRef = collection(db, 'messages');
-  const messagePayload: any = {
-    senderId: message.senderId,
-    receiverId: message.receiverId,
-    type: message.type,
-    conversationId,
-    text: message.type === 'text' ? message.text : finalMediaData,
-    timer: message.timer ?? null,
-    duration: message.duration ?? null,
-    timestamp: serverTimestamp(),
-    viewed: false,
-    received: false,
-    readAt: null,
-  };
-
-  if (message.filter !== undefined && message.filter !== null) {
-    messagePayload.filter = message.filter;
-  }
-
-  await addDoc(messagesRef, messagePayload);
 };
 
 export const addReaction = async (messageId: string, emoji: string, userId: string, currentReactions: any = {}) => {

@@ -127,10 +127,7 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
     return () => {
       unsubscribe();
       unsubscribeSecret();
-      // Clean up status listeners when uid changes (e.g. logout)
-      globalStatusUnsubscribers.forEach((unsub) => unsub());
-      globalStatusUnsubscribers.clear();
-      globalUserDetailsCache.clear();
+      // Keep globalUserDetailsCache to prevent re-fetching on tab switch
     };
   }, [currentUser.uid]);
 
@@ -204,7 +201,7 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
               numberOfLines={1} 
               className={`flex-1 ml-1 text-sm ${item.unreadCount > 0 ? 'font-bold text-primary tracking-tight' : 'text-onSurface-variant'}`}
             >
-              {item.lastMessage.type === 'snap' && item.unreadCount > 0 ? 'New Snap • Tap to view' : 
+              {item.lastMessage.type === 'snap' ? (item.unreadCount > 0 ? 'New Snap • Tap to view' : 'Snap') : 
                item.lastMessage.type === 'voice' ? 'Voice note' : item.lastMessage.text}
             </Text>
           </View>

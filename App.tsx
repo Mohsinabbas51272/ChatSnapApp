@@ -4,12 +4,14 @@ import { NavigationContainer, NavigationContainerRef } from '@react-navigation/n
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Provider, useSelector, useDispatch } from 'react-redux';
 import { store, RootState } from './src/store';
-import { setUser } from './src/store/authSlice';
+import { setUser, logout } from './src/store/authSlice';
 import { restoreTheme } from './src/store/themeSlice';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppState } from 'react-native';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from './src/services/firebaseConfig';
+import { AppState, LogBox } from 'react-native';
+
+LogBox.ignoreLogs(['expo-notifications: Android Push notifications']);
+import { doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { db, auth as firebaseAuth } from './src/services/firebaseConfig';
 import { requestNotificationPermissions, setupNotificationListeners } from './src/services/notifications';
 
 // Screens
@@ -38,6 +40,20 @@ const Navigation = () => {
   const navigationRef = useRef<NavigationContainerRef<any>>(null);
 
   useEffect(() => {
+    // Restore user session from storage for instant login
+    const restoreUserSession = async () => {
+      try {
+        const savedUser = await AsyncStorage.getItem('user');
+        if (savedUser) {
+          const userData = JSON.parse(savedUser);
+          dispatch(setUser(userData));
+        }
+      } catch (e) {
+        console.error('Failed to restore session', e);
+      }
+    };
+    restoreUserSession();
+
     const setupNotifications = async () => {
       const granted = await requestNotificationPermissions();
       if (granted) {
@@ -100,13 +116,46 @@ const Navigation = () => {
     return () => { isMounted.current = false; };
   }, []);
 
+  const [firebaseUser, setFirebaseUser] = useState(firebaseAuth.currentUser);
   useEffect(() => {
-    if (!auth.uid) return;
+    const unsubscribe = firebaseAuth.onAuthStateChanged(async (user) => {
+      setFirebaseUser(user);
+      if (user) {
+        // If Redux is empty or doesn't match the authenticated user, restore from Firestore
+        if (auth.uid !== user.uid) {
+           try {
+             const userDoc = await getDoc(doc(db, 'users', user.uid));
+             if (userDoc.exists()) {
+               const userData = userDoc.data();
+               dispatch(setUser({
+                 uid: user.uid,
+                 phoneNumber: userData.phoneNumber,
+                 displayName: userData.displayName,
+                 photoURL: userData.photoURL,
+                 isNewUser: userData.isNewUser || false,
+               }));
+             }
+           } catch (e) {
+             console.error('Session sync failed', e);
+           }
+        }
+      } else {
+        // If no user in Firebase and we think we're authenticated, log out
+        if (auth.uid) {
+           dispatch(logout());
+        }
+      }
+    });
+    return unsubscribe;
+  }, [auth.uid]);
+
+  useEffect(() => {
+    if (!auth.uid || !firebaseUser) return;
 
     const updateStatus = async (status: 'online' | 'offline') => {
       try {
         if (!isMounted.current && status === 'online') return;
-        const userRef = doc(db, 'users', auth.uid || '');
+        const userRef = doc(db, 'users', firebaseUser.uid);
         await setDoc(userRef, {
           status,
           lastSeen: serverTimestamp(),
@@ -118,7 +167,7 @@ const Navigation = () => {
 
     updateStatus(AppState.currentState === 'active' ? 'online' : 'offline');
 
-    const subscription = AppState.addEventListener('change', nextAppState => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
       updateStatus(nextAppState === 'active' ? 'online' : 'offline');
     });
 
@@ -126,7 +175,7 @@ const Navigation = () => {
       subscription.remove();
       updateStatus('offline');
     };
-  }, [auth.uid, auth.phoneNumber]);
+  }, [auth.uid, firebaseUser]);
 
   const MyTheme = useMemo(() => ({
     dark: false,
@@ -170,10 +219,14 @@ const Navigation = () => {
   );
 };
 
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
 export default function App() {
   return (
     <Provider store={store}>
-      <Navigation />
+      <SafeAreaProvider>
+        <Navigation />
+      </SafeAreaProvider>
     </Provider>
   );
 }

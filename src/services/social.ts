@@ -27,7 +27,7 @@ export interface FriendRequest {
 }
 
 // Send a friend request
-export const sendFriendRequest = async (toId: string, senderName: string, senderPhoto?: string) => {
+export const sendFriendRequest = async (toId: string, senderName: string, senderPhoto?: string, source: 'contact' | 'search' = 'search') => {
   const currentUser = auth.currentUser;
   if (!currentUser) return;
 
@@ -52,6 +52,7 @@ export const sendFriendRequest = async (toId: string, senderName: string, sender
     status: 'pending',
     senderName,
     senderPhoto: senderPhoto || null,
+    source,
     timestamp: serverTimestamp(),
   });
 };

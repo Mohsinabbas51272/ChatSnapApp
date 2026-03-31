@@ -21,7 +21,8 @@
         "foregroundImage": "./assets/chatsnap-icon.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.mohsin.x1234.ChatSnap"
+      "package": "com.mohsin.x1234.ChatSnap",
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -33,8 +34,7 @@
       "expo-contacts",
       "expo-image-picker",
       "expo-notifications",
-      "expo-barcode-scanner",
-      "expo-dev-client"
+      "expo-barcode-scanner"
     ]
   }
 }

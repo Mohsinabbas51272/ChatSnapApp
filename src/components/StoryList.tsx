@@ -3,10 +3,18 @@ import { View, Text, FlatList, TouchableOpacity, Image } from 'react-native';
 import { Plus } from 'lucide-react-native';
 import { Story } from '../services/stories';
 
-interface StoryListProps {
+export interface GroupedStory {
+  userId: string;
+  displayName: string;
+  userPhoto?: string;
   stories: Story[];
+  hasUnread: boolean;
+}
+
+interface StoryListProps {
+  groupedStories: GroupedStory[];
   onAddStory: () => void;
-  onViewStory: (story: Story) => void;
+  onViewStory: (stories: Story[], initialIndex: number) => void;
   currentUser: any;
 }
 
@@ -20,35 +28,38 @@ const storyRingStyle = {
   elevation: 3,
 };
 
-const storyInnerRingStyle = {
-  width: '100%' as const, height: '100%' as const, borderRadius: 999,
-  borderWidth: 2, borderColor: '#9ba8ff',
-  overflow: 'hidden' as const,
-};
-
-const StoryList = React.memo(({ stories, onAddStory, onViewStory, currentUser }: StoryListProps) => {
-  const renderStory = useCallback(({ item }: { item: Story }) => (
-    <TouchableOpacity onPress={() => onViewStory(item)} className="mr-4 items-center">
-      <View className="w-16 h-16 rounded-full p-[3px]" style={storyRingStyle}>
-        <View style={storyInnerRingStyle}>
-          <View className="w-full h-full rounded-full bg-surface-container overflow-hidden border-2 border-surface">
-            <Image source={{ uri: item.imageUri }} className="w-full h-full" />
+const StoryList = React.memo(({ groupedStories, onAddStory, onViewStory, currentUser }: StoryListProps) => {
+  const renderStory = useCallback(({ item }: { item: GroupedStory }) => {
+    // Determine color based on whether any stories are unread
+    const borderColor = item.hasUnread ? '#9ba8ff' : '#44475a';
+    
+    return (
+      <TouchableOpacity onPress={() => onViewStory(item.stories, 0)} className="mr-4 items-center">
+        <View className="w-16 h-16 rounded-full p-[3px]" style={item.hasUnread ? storyRingStyle : undefined}>
+          <View style={{
+            width: '100%', height: '100%', borderRadius: 999,
+            borderWidth: 2, borderColor,
+            overflow: 'hidden'
+          }}>
+            <View className="w-full h-full rounded-full bg-surface-container overflow-hidden border-2 border-surface">
+              <Image source={{ uri: item.userPhoto || item.stories?.[0]?.imageUri }} className="w-full h-full" />
+            </View>
           </View>
         </View>
-      </View>
-      <Text className="text-[10px] text-primary mt-2 font-medium uppercase tracking-widest" numberOfLines={1}>
-        {item.displayName.split(' ')[0]}
-      </Text>
-    </TouchableOpacity>
-  ), [onViewStory]);
+        <Text className="text-[10px] text-primary mt-2 font-medium uppercase tracking-widest" numberOfLines={1}>
+          {item.displayName.split(' ')[0]}
+        </Text>
+      </TouchableOpacity>
+    );
+  }, [onViewStory]);
 
   return (
     <View className="py-6 bg-surface">
       <FlatList
         horizontal
         showsHorizontalScrollIndicator={false}
-        data={stories}
-        keyExtractor={(item, index) => item.id || `story-${index}`}
+        data={groupedStories}
+        keyExtractor={(item) => item.userId}
         contentContainerStyle={{ paddingHorizontal: 16 }}
         ListHeaderComponent={
           <TouchableOpacity onPress={onAddStory} className="mr-5 items-center">
@@ -69,3 +80,4 @@ const StoryList = React.memo(({ stories, onAddStory, onViewStory, currentUser }:
 });
 
 export default StoryList;
+

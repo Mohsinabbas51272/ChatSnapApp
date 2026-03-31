@@ -11,9 +11,10 @@ import {
   Dimensions,
   StatusBar,
   StyleSheet,
-  Alert
+  Alert,
+  Keyboard
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Send, Camera, Image as ImageIcon, ArrowLeft, MoreVertical, Smile, Check, CheckCheck, Mic, Play, Pause, Activity, Shield, Trash, ChevronLeft, Search } from 'lucide-react-native';
 import { Audio } from 'expo-av';
 import { onSnapshot, doc } from 'firebase/firestore';
@@ -155,6 +156,15 @@ const MessageItem = React.memo(({ item, isMe, chatPartner, onOpenSnap, onLongPre
             isMe ? 'rounded-tr-none' : 'rounded-tl-none'
           } ${isSnap && item.viewed ? 'opacity-40' : ''}`}
         >
+          {item.storyReply && (
+             <View className="mb-3 bg-black/10 rounded-xl overflow-hidden flex-row items-center border border-white/20" style={{ maxWidth: 200 }}>
+                 <Image source={{ uri: item.storyReply.imageUri }} className="w-12 h-16 bg-surface-container" resizeMode="cover" />
+                 <View className="ml-3 flex-1 pr-2 py-2">
+                    <Text className="font-bold text-xs text-white" numberOfLines={1}>Replying to {item.storyReply.authorName}</Text>
+                    <Text className="text-[10px] text-white/70 mt-0.5">Story</Text>
+                 </View>
+             </View>
+          )}
           {isSnap ? (
             <View className="flex-row items-center">
               <View className={`w-8 h-8 rounded-full items-center justify-center ${isMe ? 'bg-white/20' : 'bg-white/20'}`}>
@@ -229,7 +239,7 @@ const MessageItem = React.memo(({ item, isMe, chatPartner, onOpenSnap, onLongPre
             {Object.entries(item.reactions!).map(([emoji, uids]: [string, any]) => (
               <View key={emoji} className="bg-surface-container-highest rounded-full px-1.5 py-0.5 shadow-sm border border-outline-variant/15 mr-1 mb-1 flex-row items-center">
                 <Text className="text-xs">{emoji}</Text>
-                {uids.length > 1 && <Text className="text-[10px] ml-0.5 text-onSurface-variant font-bold">{uids.length}</Text>}
+                {Array.isArray(uids) && uids.length > 1 && <Text className="text-[10px] ml-0.5 text-onSurface-variant font-bold">{uids.length}</Text>}
               </View>
             ))}
           </View>
@@ -249,9 +259,14 @@ const ChatScreen = () => {
   const currentUser = useSelector((state: RootState) => state.auth);
   const { primaryColor } = useSelector((state: RootState) => state.theme);
   const navigation = useNavigation();
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (!currentUser.uid || !chatPartner.uid) return;
+
+    // Clear messages when user switches so they don't see previous chat
+    setMessages([]);
 
     const conversationId = [currentUser.uid, chatPartner.uid].sort().join('_');
     
@@ -281,6 +296,21 @@ const ChatScreen = () => {
   }, [chatPartner.uid, currentUser.uid]);
 
   useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+        setKeyboardVisible(true);
+        flatListRef.current?.scrollToEnd({ animated: true });
+    });
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+        setKeyboardVisible(false);
+    });
+
+    return () => {
+        keyboardDidShowListener.remove();
+        keyboardDidHideListener.remove();
+    };
+  }, []);
+
+  useEffect(() => {
     if (!currentUser.uid || !chatPartner.uid || messages.length === 0) return;
 
     // Mark messages as received when they arrive
@@ -296,11 +326,17 @@ const ChatScreen = () => {
       }
     });
 
-    // Only mark the latest message as viewed if it's from partner and unread
-    const lastMessage = messages[messages.length - 1];
-    if (lastMessage.senderId === chatPartner.uid && !lastMessage.viewed) {
-      markAsViewed(lastMessage.id!);
-    }
+    // Mark messages as viewed if they are text or and from partner
+    messages.forEach(async (msg) => {
+      if (
+        msg.senderId === chatPartner.uid && 
+        !msg.viewed && 
+        msg.id && 
+        (msg.type === 'text' || msg.type === 'voice')
+      ) {
+        await markAsViewed(msg.id);
+      }
+    });
   }, [messages.length, chatPartner.uid, currentUser.uid]);
 
   const [partnerStatus, setPartnerStatus] = useState<{ status: string; lastSeen?: any }>({ status: 'offline' });
@@ -433,15 +469,15 @@ const ChatScreen = () => {
     if (type === 'snap') setShowCamera(false);
 
     try {
-      await sendMessage({
-        senderId: currentUser.uid,
-        receiverId: chatPartner.uid,
-        text: textToSend,
-        type: type,
-        timer: type === 'snap' ? duration : undefined,
-        duration: type === 'voice' ? duration : undefined,
-        filter: type === 'snap' ? filter : undefined,
-      });
+      await sendMessage(
+        currentUser.uid,
+        chatPartner.uid,
+        textToSend,
+        type,
+        type === 'snap' ? duration : undefined,
+        type === 'voice' ? duration : undefined,
+        type === 'snap' ? filter : undefined
+      );
     } catch (error) {
       console.error(error);
     }
@@ -558,8 +594,8 @@ const ChatScreen = () => {
       )}
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 25}
         style={{ flex: 1 }}
       >
         <FlatList
@@ -614,7 +650,10 @@ const ChatScreen = () => {
           </View>
         )}
 
-        <SafeAreaView edges={['bottom']} className="bg-surface-container-low/60">
+        <View 
+          className="bg-surface-container-low/60"
+          style={{ paddingBottom: keyboardVisible ? 20 : insets.bottom + 5 }}
+        >
           <View className="flex-row items-end px-4 py-4">
           {!isRecording ? (
             <TouchableOpacity onPress={() => setShowCamera(true)} className="p-3 bg-surface-container-highest rounded-full mb-1">
@@ -685,7 +724,7 @@ const ChatScreen = () => {
             </TouchableOpacity>
           )}
         </View>
-        </SafeAreaView>
+        </View>
       </KeyboardAvoidingView>
 
       {showEmojiPicker && (
