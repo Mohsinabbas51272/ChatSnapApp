@@ -15,14 +15,23 @@ import {
 } from '../services/social';
 import { fetchUsersByIds } from '../services/contacts';
 import { useNavigation } from '@react-navigation/native';
-import { UserPlus, UserCheck, Clock, Check, X, Users, MessageCircle, Plus, Users as UsersIcon } from 'lucide-react-native';
+import { UserPlus, UserCheck, Clock, Check, X, Users, MessageCircle, Plus, Users as UsersIcon, Info } from 'lucide-react-native';
 import { getMutualFriends, createGroup, subscribeToGroups, Group } from '../services/groups';
 
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
+import { useResponsive } from '../hooks/useResponsive';
+import { isLightColor, getContrastText } from '../services/colors';
 
 const ContactsScreen = ({ searchQuery = '' }: { searchQuery?: string }) => {
-  const { primaryColor } = useSelector((state: RootState) => state.theme);
+  const { primaryColor, isDarkMode } = useSelector((state: RootState) => state.theme);
+  const { isTablet, getResponsiveContainerStyle } = useResponsive();
+
+  const textColor = isDarkMode ? '#FFFFFF' : '#1a1c1e';
+  const subTextColor = isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.5)';
+  const surfaceLow = isDarkMode ? '#000000' : '#F0F2FA';
+  const surfaceHigh = isDarkMode ? '#000000' : '#E8EAF6';
+
   const [contacts, setContacts] = useState<ContactUser[]>([]);
   const [searchResults, setSearchResults] = useState<ContactUser[]>([]);
   const [friendUsers, setFriendUsers] = useState<ContactUser[]>([]);
@@ -216,17 +225,20 @@ const ContactsScreen = ({ searchQuery = '' }: { searchQuery?: string }) => {
   };
 
   const RequestItem = ({ item }: { item: FriendRequest }) => (
-    <View className="bg-surface-container-low mx-4 mb-3 p-4 rounded-2xl flex-row items-center border border-outline-variant/10 shadow-sm">
-      <View className="w-10 h-10 bg-surface-container-highest rounded-full items-center justify-center overflow-hidden">
+    <View 
+      className="mx-4 mb-3 p-4 rounded-2xl flex-row items-center border shadow-sm"
+      style={{ backgroundColor: surfaceLow, borderColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}
+    >
+      <View className="w-10 h-10 rounded-full items-center justify-center overflow-hidden" style={{ backgroundColor: surfaceHigh }}>
         {item.senderPhoto ? (
           <Image source={{ uri: item.senderPhoto }} className="w-full h-full" />
         ) : (
-          <Text className="text-primary font-bold">{(item.senderName || '?').charAt(0)}</Text>
+          <Text className="font-bold" style={{ color: primaryColor }}>{(item.senderName || '?').charAt(0)}</Text>
         )}
       </View>
       <View className="flex-1 ml-3">
-        <Text className="text-onSurface font-bold text-sm">{item.senderName}</Text>
-        <Text className="text-onSurface-variant text-xs">Sent a friend request</Text>
+        <Text className="font-bold text-sm" style={{ color: textColor }}>{item.senderName}</Text>
+        <Text className="text-xs" style={{ color: subTextColor }}>Sent a friend request</Text>
       </View>
       <View className="flex-row">
         <TouchableOpacity 
@@ -237,7 +249,8 @@ const ContactsScreen = ({ searchQuery = '' }: { searchQuery?: string }) => {
         </TouchableOpacity>
         <TouchableOpacity 
           onPress={() => handleResponse(item.id, 'declined')}
-          className="w-8 h-8 rounded-full bg-surface-container-highest items-center justify-center"
+          className="w-8 h-8 rounded-full items-center justify-center"
+          style={{ backgroundColor: surfaceHigh }}
         >
           <X size={16} color="#ff6e85" />
         </TouchableOpacity>
@@ -274,25 +287,31 @@ const ContactsScreen = ({ searchQuery = '' }: { searchQuery?: string }) => {
         }}
         activeOpacity={0.7}
       >
-        <View className="w-12 h-12 bg-surface-container-highest rounded-full items-center justify-center overflow-hidden border border-outline-variant/20">
+        <View 
+          className="w-12 h-12 rounded-full items-center justify-center overflow-hidden border"
+          style={{ 
+            backgroundColor: surfaceHigh,
+            borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'
+          }}
+        >
           {item.photoURL ? (
             <Image source={{ uri: item.photoURL }} className="w-full h-full" />
           ) : (
-            <Text className="text-primary font-bold text-lg">
+            <Text className="font-bold text-lg" style={{ color: primaryColor }}>
               {(item.displayName || item.phoneNumber || '?').charAt(0).toUpperCase()}
             </Text>
           )}
         </View>
         <View className="ml-4 flex-1">
           <View className="flex-row items-center">
-            <Text className="text-onSurface font-semibold text-base">{item.displayName}</Text>
+            <Text className="font-semibold text-base" style={{ color: textColor }}>{item.displayName}</Text>
             {showCreateGroup && isFriend && (
               <View className={`ml-2 w-5 h-5 rounded-full items-center justify-center border ${selectedGroupMembers.includes(item.uid) ? 'bg-primary border-primary' : 'border-outline-variant'}`}>
                  {selectedGroupMembers.includes(item.uid) && <Check size={12} color="white" />}
               </View>
             )}
           </View>
-          <Text className="text-onSurface-variant text-sm">
+          <Text className="text-sm" style={{ color: subTextColor }}>
             {isFriend ? (mutualCount > 0 ? `${mutualCount} mutual friends` : 'Friend') : wasRequested ? 'Requested' : hasIncoming ? 'Sent you a request' : item.phoneNumber}
           </Text>
         </View>
@@ -307,136 +326,154 @@ const ContactsScreen = ({ searchQuery = '' }: { searchQuery?: string }) => {
         )}
         {wasRequested && (
           <View className="w-10 h-10 items-center justify-center">
-            <Clock size={20} color="#94a3b8" />
+            <Clock size={20} color={subTextColor} />
           </View>
         )}
         {isFriend && !showCreateGroup && (
           <View className="bg-primary/10 px-4 py-2 rounded-full flex-row items-center">
-             <MessageCircle size={14} color={primaryColor} className="mr-1" />
-             <Text className="text-primary font-bold text-xs">Chat</Text>
+             <MessageCircle size={14} color={primaryColor} />
+             <Text className="text-primary font-bold text-xs ml-1">Chat</Text>
           </View>
         )}
       </TouchableOpacity>
     );
-  }, [navigation, friends, friendRequests, requestedIds, primaryColor, mutualFriends, showCreateGroup, selectedGroupMembers]);
+  }, [navigation, friends, friendRequests, requestedIds, primaryColor, mutualFriends, showCreateGroup, selectedGroupMembers, isDarkMode, textColor, subTextColor, surfaceHigh]);
 
   return (
-    <View className="flex-1 bg-surface">
-      <StatusBar barStyle="light-content" backgroundColor={primaryColor} />
+    <View className="flex-1" style={{ backgroundColor: 'transparent' }}>
+      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
       
       {loading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color={primaryColor} />
         </View>
       ) : (
-        <FlatList
-          data={[...combinedList, ...searchResults]}
-          keyExtractor={(item) => item.uid}
-          renderItem={renderItem}
-          ListHeaderComponent={
-            <>
-              {!showCreateGroup ? (
-                <View className="px-4 py-4 flex-row justify-between items-center">
-                   <TouchableOpacity 
-                    onPress={() => setShowCreateGroup(true)}
-                    className="flex-1 bg-primary/10 p-4 rounded-3xl flex-row items-center justify-center border border-primary/20"
-                   >
-                      <UsersIcon size={20} color={primaryColor} />
-                      <Text className="ml-2 text-primary font-black text-sm uppercase tracking-widest">New Group Chat</Text>
-                   </TouchableOpacity>
-                </View>
-              ) : (
-                <View className="px-6 py-6 border-b border-outline-variant/10 bg-surface-container-low mx-4 mt-2 rounded-[32px]">
-                   <View className="flex-row justify-between items-center mb-4">
-                      <Text className="text-onSurface font-black text-lg">Create Squad</Text>
-                      <TouchableOpacity onPress={() => { setShowCreateGroup(false); setSelectedGroupMembers([]); setGroupName(''); }}>
-                         <X size={20} color="#737580" />
-                      </TouchableOpacity>
-                   </View>
-                   <TextInput 
-                      className="bg-surface-container-highest px-6 py-4 rounded-2xl text-onSurface font-bold border border-outline-variant/10 mb-4"
-                      placeholder="Squad Name..."
-                      placeholderTextColor="#737580"
-                      value={groupName}
-                      onChangeText={setGroupName}
-                   />
-                   <View className="flex-row justify-between items-center">
-                      <Text className="text-onSurface-variant text-xs font-bold">{selectedGroupMembers.length} friends selected</Text>
+        <View style={getResponsiveContainerStyle()}>
+          <FlatList
+            data={[...combinedList, ...searchResults]}
+            keyExtractor={(item) => item.uid}
+            renderItem={renderItem}
+            ListHeaderComponent={
+              <>
+                {!showCreateGroup ? (
+                  <View className={`px-4 py-4 flex-row justify-between items-center ${isTablet ? 'max-w-md self-center w-full' : ''}`}>
                       <TouchableOpacity 
-                        onPress={handleCreateGroup}
-                        className="bg-primary px-6 py-3 rounded-full shadow-lg"
+                       onPress={() => setShowCreateGroup(true)}
+                       className="flex-1 p-4 rounded-3xl flex-row items-center justify-center border"
+                       style={{ 
+                         backgroundColor: isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.05)' : `${primaryColor}15`, 
+                         borderColor: isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.1)' : `${primaryColor}30` 
+                       }}
                       >
-                         <Text className="text-white font-black text-xs uppercase">Create</Text>
+                         <UsersIcon size={20} color={isLightColor(primaryColor) && !isDarkMode ? '#000000' : primaryColor} />
+                         <Text className="ml-2 font-black text-sm uppercase tracking-widest" style={{ color: isLightColor(primaryColor) && !isDarkMode ? '#000000' : primaryColor }}>New Group Chat</Text>
                       </TouchableOpacity>
-                   </View>
-                </View>
-              )}
-
-              {groups.length > 0 && !showCreateGroup && (
-                <View className="py-2">
-                   <View className="flex-row items-center px-6 py-3">
-                      <UsersIcon size={18} color={primaryColor} />
-                      <Text className="ml-2 text-sm font-bold text-onSurface-variant uppercase tracking-widest">My Squads</Text>
-                   </View>
-                   <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-4 mb-4">
-                      {groups.map(group => (
-                        <TouchableOpacity 
-                          key={group.id} 
-                          onPress={() => navigation.navigate('Chat', { group })}
-                          className="items-center mr-6"
-                        >
-                           <View className="w-16 h-16 bg-surface-container-highest rounded-3xl items-center justify-center border border-outline-variant/10 mb-2 shadow-sm">
-                              <UsersIcon size={24} color={primaryColor} />
-                           </View>
-                           <Text className="text-onSurface font-bold text-xs" numberOfLines={1}>{group.name}</Text>
+                  </View>
+                ) : (
+                  <View 
+                    className={`px-6 py-6 border-b mx-4 mt-2 rounded-[32px] ${isTablet ? 'max-w-md self-center w-full' : ''}`}
+                    style={{ backgroundColor: surfaceLow, borderColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}
+                  >
+                     <View className="flex-row justify-between items-center mb-4">
+                        <Text className="font-black text-lg" style={{ color: textColor }}>Create Squad</Text>
+                        <TouchableOpacity onPress={() => { setShowCreateGroup(false); setSelectedGroupMembers([]); setGroupName(''); }}>
+                           <X size={20} color={subTextColor} />
                         </TouchableOpacity>
-                      ))}
-                   </ScrollView>
-                </View>
-              )}
-              {friendRequests.length > 0 && (
-                <View className="py-2">
-                  <View className="flex-row items-center px-6 py-3">
-                    <Users size={18} color={primaryColor} />
-                    <Text className="ml-2 text-sm font-bold text-onSurface-variant uppercase tracking-widest">
-                      New Friend Requests ({friendRequests.length})
+                     </View>
+                     <TextInput 
+                        className="px-6 py-4 rounded-2xl font-bold border mb-4"
+                        style={{ 
+                          backgroundColor: surfaceHigh, 
+                          color: textColor,
+                          borderColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
+                        }}
+                        placeholder="Squad Name..."
+                        placeholderTextColor={subTextColor}
+                        value={groupName}
+                        onChangeText={setGroupName}
+                     />
+                     <View className="flex-row justify-between items-center">
+                        <Text className="text-xs font-bold" style={{ color: subTextColor }}>{selectedGroupMembers.length} friends selected</Text>
+                        <TouchableOpacity 
+                          onPress={handleCreateGroup}
+                          className="px-6 py-3 rounded-full shadow-lg"
+                          style={{ backgroundColor: primaryColor }}
+                        >
+                           <Text className="font-black text-xs uppercase" style={{ color: getContrastText(primaryColor) }}>Create</Text>
+                        </TouchableOpacity>
+                     </View>
+                  </View>
+                )}
+
+                {groups.length > 0 && !showCreateGroup && (
+                  <View className={`py-2 ${isTablet ? 'max-w-md self-center w-full' : ''}`}>
+                     <View className="flex-row items-center px-6 py-3">
+                        <UsersIcon size={18} color={primaryColor} />
+                        <Text className="ml-2 text-sm font-bold uppercase tracking-widest" style={{ color: subTextColor }}>My Squads</Text>
+                     </View>
+                     <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-4 mb-4">
+                        {groups.map(group => (
+                          <TouchableOpacity 
+                            key={group.id} 
+                            onPress={() => navigation.navigate('Chat', { group })}
+                            className="items-center mr-6"
+                          >
+                             <View 
+                                className="w-16 h-16 rounded-3xl items-center justify-center border mb-2 shadow-sm"
+                                style={{ backgroundColor: surfaceHigh, borderColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}
+                             >
+                                <UsersIcon size={24} color={primaryColor} />
+                             </View>
+                             <Text className="font-bold text-xs" numberOfLines={1} style={{ color: textColor }}>{group.name}</Text>
+                          </TouchableOpacity>
+                        ))}
+                     </ScrollView>
+                  </View>
+                )}
+                {friendRequests.length > 0 && (
+                  <View className={`py-2 ${isTablet ? 'max-w-md self-center w-full' : ''}`}>
+                    <View className="flex-row items-center px-6 py-3">
+                      <Users size={18} color={primaryColor} />
+                      <Text className="ml-2 text-sm font-bold uppercase tracking-widest" style={{ color: subTextColor }}>
+                        New Friend Requests ({friendRequests.length})
+                      </Text>
+                    </View>
+                    {friendRequests.map(req => <RequestItem key={req.id} item={req} />)}
+                  </View>
+                )}
+                {combinedList.length > 0 && (
+                  <View className={`px-6 py-2 ${isTablet ? 'max-w-md self-center w-full' : ''}`}>
+                    <Text className="text-sm font-bold uppercase tracking-widest" style={{ color: subTextColor }}>
+                      Your Contacts & Friends
                     </Text>
                   </View>
-                  {friendRequests.map(req => <RequestItem key={req.id} item={req} />)}
-                </View>
-              )}
-              {combinedList.length > 0 && (
-                <View className="px-6 py-2">
-                  <Text className="text-sm font-bold text-onSurface-variant uppercase tracking-widest">
-                    Your Contacts & Friends
-                  </Text>
-                </View>
-              )}
-              {searching ? (
-                <View className="p-10 items-center">
-                   <ActivityIndicator color={primaryColor} />
-                   <Text className="text-onSurface-variant mt-2">Searching Global Users...</Text>
-                </View>
-              ) : searchResults.length > 0 && (
-                <View className="px-6 py-4">
-                  <Text className="text-sm font-bold text-onSurface-variant uppercase tracking-widest">
-                    Global Results
-                  </Text>
-                </View>
-              )}
-            </>
-          }
-          contentContainerStyle={{ paddingTop: 12, paddingBottom: 100 }}
-          initialNumToRender={15}
-          maxToRenderPerBatch={15}
-          windowSize={5}
-          removeClippedSubviews={Platform.OS === 'android'}
-          ListEmptyComponent={
-            <View className="flex-1 items-center justify-center mt-10 px-10">
-              <Text className="text-onSurface-variant text-center">No registered contacts found. Invite your friends!</Text>
-            </View>
-          }
-        />
+                )}
+                {searching ? (
+                  <View className="p-10 items-center">
+                     <ActivityIndicator color={primaryColor} />
+                     <Text className="mt-2" style={{ color: subTextColor }}>Searching Global Users...</Text>
+                  </View>
+                ) : searchResults.length > 0 && (
+                  <View className={`px-6 py-4 ${isTablet ? 'max-w-md self-center w-full' : ''}`}>
+                    <Text className="text-sm font-bold uppercase tracking-widest" style={{ color: subTextColor }}>
+                      Global Results
+                    </Text>
+                  </View>
+                )}
+              </>
+            }
+            contentContainerStyle={{ paddingTop: 12, paddingBottom: 100 }}
+            initialNumToRender={15}
+            maxToRenderPerBatch={15}
+            windowSize={5}
+            removeClippedSubviews={Platform.OS === 'android'}
+            ListEmptyComponent={
+              <View className="flex-1 items-center justify-center mt-10 px-10">
+                <Text className="text-center" style={{ color: subTextColor }}>No registered contacts found. Invite your friends!</Text>
+              </View>
+            }
+          />
+        </View>
       )}
     </View>
   );

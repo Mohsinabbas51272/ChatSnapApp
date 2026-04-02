@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, Search, Shield, Trash, MoreVertical } from 'lucide-react-native';
 import Header from '../ui/Header';
+import { isLightColor, getContrastText } from '../../services/colors';
 
 interface ChatHeaderProps {
   navigation: any;
@@ -21,6 +22,7 @@ interface ChatHeaderProps {
   handleClearChat: () => void;
   blockedByMe: boolean;
   handleBlockToggle: () => void;
+  isDarkMode: boolean;
 }
 
 const ChatHeader: React.FC<ChatHeaderProps> = ({
@@ -40,8 +42,13 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
   handleClearChat,
   blockedByMe,
   handleBlockToggle,
+  isDarkMode,
 }) => {
   if (showInChatSearch) {
+    const searchTextColor = getContrastText(primaryColor);
+    const searchIconColor = isLightColor(primaryColor) ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.7)';
+    const searchBg = isLightColor(primaryColor) ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.2)';
+
     return (
       <SafeAreaView edges={['top']} style={{ backgroundColor: primaryColor }}>
         <View className="flex-row items-center px-4 py-3">
@@ -49,14 +56,18 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
             className="p-2 mr-2" 
             onPress={() => { setShowInChatSearch(false); setChatSearchQuery(''); }}
           >
-            <ChevronLeft size={24} color="white" />
+            <ChevronLeft size={24} color={searchTextColor} />
           </TouchableOpacity>
-          <View className="flex-1 bg-white/20 rounded-full flex-row items-center px-4 h-11">
-            <Search size={18} color="white" />
+          <View 
+            className="flex-1 rounded-full flex-row items-center px-4 h-11"
+            style={{ backgroundColor: searchBg }}
+          >
+            <Search size={18} color={searchIconColor} />
             <TextInput 
-              className="flex-1 ml-2 text-white font-bold h-full"
+              className="flex-1 ml-2 font-bold h-full"
+              style={{ color: searchTextColor }}
               placeholder="Find in chat..."
-              placeholderTextColor="rgba(255,255,255,0.6)"
+              placeholderTextColor={searchIconColor}
               value={chatSearchQuery}
               onChangeText={setChatSearchQuery}
               autoFocus
@@ -66,6 +77,9 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
       </SafeAreaView>
     );
   }
+
+  const headerIconColor = isDarkMode ? 'white' : (isLightColor(primaryColor) ? '#1a1c1e' : 'white');
+  const headerIconBg = isDarkMode ? 'rgba(255,255,255,0.2)' : (isLightColor(primaryColor) ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.2)');
 
   return (
     <Header 
@@ -78,17 +92,17 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
           <TouchableOpacity 
             onPress={() => setShowInChatSearch(true)}
             className="p-2.5 rounded-full mr-1"
-            style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
+            style={{ backgroundColor: headerIconBg }}
           >
-            <Search size={20} color="white" />
+            <Search size={20} color={headerIconColor} />
           </TouchableOpacity>
           {!isGroup && (
             <TouchableOpacity 
               onPress={handleToggleSecret} 
               className="p-2.5 rounded-full mr-1"
-              style={{ backgroundColor: isSecret ? 'rgba(255,255,255,0.3)' : 'transparent' }}
+              style={{ backgroundColor: isSecret ? (isDarkMode ? 'rgba(255,255,255,0.3)' : (isLightColor(primaryColor) ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.3)')) : 'transparent' }}
             >
-              <Shield size={20} color="white" fill={isSecret ? 'white' : 'transparent'} />
+              <Shield size={20} color={headerIconColor} fill={isSecret ? (isLightColor(primaryColor) && !isDarkMode ? '#000' : 'white') : 'transparent'} />
             </TouchableOpacity>
           )}
           <TouchableOpacity 
@@ -100,7 +114,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
             }} 
             className="p-2.5 rounded-full mr-1"
           >
-            <Trash size={20} color="white" />
+            <Trash size={20} color={headerIconColor} />
           </TouchableOpacity>
           {!isGroup && (
             <TouchableOpacity 
@@ -119,9 +133,9 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
                 );
               }} 
               className="p-2.5 rounded-full" 
-              style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
+              style={{ backgroundColor: headerIconBg }}
             >
-              <MoreVertical size={20} color="white" />
+              <MoreVertical size={20} color={headerIconColor} />
             </TouchableOpacity>
           )}
         </View>

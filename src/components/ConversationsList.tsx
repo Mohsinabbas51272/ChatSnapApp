@@ -12,7 +12,9 @@ import {
 import { db } from '../services/firebaseConfig';
 import Header from './ui/Header';
 import { subscribeToGroupConversations } from '../services/groups';
-import { Users } from 'lucide-react-native';
+import { Users, Info } from 'lucide-react-native';
+import { useResponsive } from '../hooks/useResponsive';
+import { isLightColor, getContrastText } from '../services/colors';
 
 interface Conversation {
   partnerId: string;
@@ -48,7 +50,13 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
   const [viewMode, setViewMode] = useState<'private' | 'groups' | 'secret'>('private');
   const navigation = useNavigation<any>();
   const currentUser = useSelector((state: RootState) => state.auth);
-  const { primaryColor } = useSelector((state: RootState) => state.theme);
+  const { primaryColor, isDarkMode } = useSelector((state: RootState) => state.theme);
+  const { isTablet, getResponsiveContainerStyle } = useResponsive();
+
+  const textColor = isDarkMode ? '#FFFFFF' : '#1a1c1e';
+  const subTextColor = isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.5)';
+  const surfaceLow = isDarkMode ? '#000000' : '#F0F2FA';
+  const surfaceHigh = isDarkMode ? '#000000' : '#E8EAF6';
 
   const filteredConversations = useMemo(() => conversations.filter(conv => {
     const title = conv.isGroup ? conv.group.name : (conv.user?.displayName || '');
@@ -158,7 +166,10 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
     <Animated.View entering={FadeInLeft.delay(index * 50).duration(400)}>
       <TouchableOpacity 
         onPress={() => item.isGroup ? navigation.navigate('Chat', { group: item.group }) : navigation.navigate('Chat', { user: item.user })}
-        className={`flex-row items-center px-4 py-4 rounded-2xl mx-2 mb-1 ${item.unreadCount > 0 ? 'bg-surface-container-high/40' : ''}`}
+        className={`flex-row items-center px-4 py-4 rounded-2xl mx-2 mb-1`}
+        style={{ 
+          backgroundColor: item.unreadCount > 0 ? (isDarkMode ? 'rgba(155,168,255,0.1)' : 'rgba(155,168,255,0.05)') : 'transparent' 
+        }}
         activeOpacity={0.7}
       >
         {item.unreadCount > 0 && (
@@ -169,16 +180,20 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
           <View className={`w-14 h-14 rounded-full items-center justify-center overflow-hidden ${
             item.unreadCount > 0 
               ? 'p-[2px]' 
-              : 'bg-surface-container-highest border-2 border-outline-variant/20'
+              : ''
           }`}
           style={item.unreadCount > 0 ? {
             borderWidth: 2,
             borderColor: 'transparent',
             backgroundColor: 'transparent',
-          } : undefined}
+          } : {
+            backgroundColor: surfaceHigh,
+            borderWidth: 2,
+            borderColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
+          }}
           >
             {item.isGroup ? (
-              <View className="w-full h-full bg-surface-container-highest items-center justify-center">
+              <View className="w-full h-full items-center justify-center" style={{ backgroundColor: surfaceHigh }}>
                 <Users color={primaryColor} size={28} />
               </View>
             ) : item.unreadCount > 0 ? (
@@ -189,8 +204,8 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
                 {item.user.photoURL ? (
                   <Image source={{ uri: item.user.photoURL }} className="w-full h-full" />
                 ) : (
-                  <View className="w-full h-full bg-surface-container items-center justify-center">
-                    <Text className="text-onSurface font-black text-xl">{(item.user.displayName || '?').charAt(0).toUpperCase()}</Text>
+                  <View className="w-full h-full items-center justify-center" style={{ backgroundColor: surfaceHigh }}>
+                    <Text className="font-black text-xl" style={{ color: textColor }}>{(item.user.displayName || '?').charAt(0).toUpperCase()}</Text>
                   </View>
                 )}
               </View>
@@ -198,34 +213,38 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
               item.user.photoURL ? (
                 <Image source={{ uri: item.user.photoURL }} className="w-full h-full" />
               ) : (
-                <Text className="text-onSurface font-black text-xl">{(item.user.displayName || '?').charAt(0).toUpperCase()}</Text>
+                <Text className="font-black text-xl" style={{ color: textColor }}>{(item.user.displayName || '?').charAt(0).toUpperCase()}</Text>
               )
             )}
           </View>
           {!item.isGroup && item.user.status === 'online' && (
             <View 
-              className="absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-surface" 
-              style={{ backgroundColor: '#10B981' }}
+              className="absolute bottom-0 right-0 w-4 h-4 rounded-full border-2" 
+              style={{ backgroundColor: '#10B981', borderColor: isDarkMode ? '#0f111a' : '#F8F9FF' }}
             />
           )}
         </View>
         
         <View className="flex-1 ml-4">
           <View className="flex-row justify-between items-baseline mb-1">
-            <Text className={`text-lg tracking-tight ${item.unreadCount > 0 ? 'font-bold text-onSurface' : 'font-semibold text-onSurface/90'}`}>
+            <Text className={`text-lg tracking-tight ${item.unreadCount > 0 ? 'font-bold' : 'font-semibold'}`} style={{ color: item.unreadCount > 0 ? textColor : (isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.8)') }}>
               {item.isGroup ? item.group.name : item.user.displayName}
             </Text>
-            <Text className={`text-[11px] tracking-tight ${item.unreadCount > 0 ? 'font-bold text-primary' : 'font-medium text-onSurface-variant'}`}>
+            <Text 
+              className={`text-[11px] tracking-tight ${item.unreadCount > 0 ? 'font-bold' : 'font-medium'}`}
+              style={{ color: item.unreadCount > 0 ? primaryColor : subTextColor }}
+            >
                {item.lastMessage.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </Text>
           </View>
           <View className="flex-row items-center mt-0.5">
             {item.lastMessage.type === 'snap' ? (
-              <Camera size={14} color={item.lastMessage.viewed ? '#64748B' : primaryColor} />
+              <Camera size={14} color={item.lastMessage.viewed ? (isDarkMode ? '#64748B' : '#94A3B8') : primaryColor} />
             ) : null}
             <Text 
               numberOfLines={1} 
-              className={`flex-1 ml-1 text-sm ${item.unreadCount > 0 ? 'font-bold text-primary tracking-tight' : 'text-onSurface-variant'}`}
+              className={`flex-1 ml-1 text-sm ${item.unreadCount > 0 ? 'font-bold tracking-tight' : ''}`}
+              style={{ color: item.unreadCount > 0 ? primaryColor : subTextColor }}
             >
               {item.isGroup ? `${item.lastMessage.senderName}: ${item.lastMessage.text}` :
                item.lastMessage.type === 'snap' ? (item.unreadCount > 0 ? 'New Snap • Tap to view' : 'Snap') : 
@@ -235,90 +254,95 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
         </View>
       </TouchableOpacity>
     </Animated.View>
-  ), [navigation, primaryColor, secretPartnerIds]);
+  ), [navigation, primaryColor, secretPartnerIds, isDarkMode, surfaceHigh, textColor, subTextColor]);
 
   return (
-    <View className="flex-1 bg-surface">
-      <StatusBar barStyle="light-content" backgroundColor={primaryColor} />
+    <View className="flex-1" style={{ backgroundColor: 'transparent' }}>
+      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
       
       {loading && conversations.length === 0 ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color={primaryColor} />
         </View>
       ) : (
-        <FlatList
-          data={filteredConversations}
-          keyExtractor={(item) => item.partnerId || item.group?.id || Math.random().toString()}
-          renderItem={renderItem}
-          className="bg-surface"
-          contentContainerStyle={{ paddingTop: 12, paddingBottom: 100 }}
-          initialNumToRender={12}
-          maxToRenderPerBatch={12}
-          windowSize={5}
-          removeClippedSubviews={Platform.OS === 'android'}
-          ListHeaderComponent={
-            <View className="flex-row items-center justify-around px-2 py-3 mb-2">
-              <TouchableOpacity
-                onPress={() => setViewMode('private')}
-                className={`flex-1 flex-row items-center justify-center py-3 rounded-2xl mx-1 ${viewMode === 'private' ? 'bg-primary/15' : 'bg-surface-container-low'}`}
-                activeOpacity={0.7}
-              >
-                <MessageCircle size={16} color={viewMode === 'private' ? primaryColor : '#737580'} />
-                <Text className={`ml-2 font-bold text-xs ${viewMode === 'private' ? 'text-primary' : 'text-onSurface-variant'}`}>Chats</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                onPress={() => setViewMode('groups')}
-                className={`flex-1 flex-row items-center justify-center py-3 rounded-2xl mx-1 ${viewMode === 'groups' ? 'bg-primary/15' : 'bg-surface-container-low'}`}
-                activeOpacity={0.7}
-              >
-                <Users size={16} color={viewMode === 'groups' ? primaryColor : '#737580'} />
-                <Text className={`ml-2 font-bold text-xs ${viewMode === 'groups' ? 'text-primary' : 'text-onSurface-variant'}`}>Groups</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => setViewMode('secret')}
-                className={`flex-1 flex-row items-center justify-center py-3 rounded-2xl mx-1 ${viewMode === 'secret' ? 'bg-primary/15' : 'bg-surface-container-low'}`}
-                activeOpacity={0.7}
-              >
-                <Lock size={16} color={viewMode === 'secret' ? primaryColor : '#737580'} />
-                <Text className={`ml-2 font-bold text-xs ${viewMode === 'secret' ? 'text-primary' : 'text-onSurface-variant'}`}>Secret</Text>
-              </TouchableOpacity>
-            </View>
-          }
-          ListEmptyComponent={
-            <View className="flex-1 items-center justify-center mt-20 px-8">
-              <View className="bg-surface-container-highest p-6 rounded-full mb-4">
-                {viewMode === 'secret' ? (
-                  <Lock size={48} color={primaryColor} />
-                ) : viewMode === 'groups' ? (
-                  <Users size={48} color={primaryColor} />
-                ) : (
-                  <MessageSquare size={48} color={primaryColor} />
+        <View style={getResponsiveContainerStyle()}>
+          <FlatList
+            data={filteredConversations}
+            keyExtractor={(item) => item.partnerId || item.group?.id || Math.random().toString()}
+            renderItem={renderItem}
+            contentContainerStyle={{ paddingTop: 12, paddingBottom: 100, paddingHorizontal: isTablet ? 0 : 8 }}
+            initialNumToRender={12}
+            maxToRenderPerBatch={12}
+            windowSize={5}
+            removeClippedSubviews={Platform.OS === 'android'}
+            ListHeaderComponent={
+              <View className={`flex-row items-center justify-around px-2 py-3 mb-2 ${isTablet ? 'max-w-md self-center w-full' : ''}`}>
+                <TouchableOpacity
+                  onPress={() => setViewMode('private')}
+                  className={`flex-1 flex-row items-center justify-center py-3 rounded-2xl mx-1`}
+                  style={{ backgroundColor: viewMode === 'private' ? (isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.05)' : `${primaryColor}20`) : surfaceLow }}
+                  activeOpacity={0.7}
+                >
+                  <MessageCircle size={16} color={viewMode === 'private' ? (isLightColor(primaryColor) && !isDarkMode ? getContrastText(primaryColor) : primaryColor) : subTextColor} />
+                  <Text className={`ml-2 font-bold text-xs`} style={{ color: viewMode === 'private' ? (isLightColor(primaryColor) && !isDarkMode ? getContrastText(primaryColor) : primaryColor) : subTextColor }}>Chats</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  onPress={() => setViewMode('groups')}
+                  className={`flex-1 flex-row items-center justify-center py-3 rounded-2xl mx-1`}
+                  style={{ backgroundColor: viewMode === 'groups' ? (isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.05)' : `${primaryColor}20`) : surfaceLow }}
+                  activeOpacity={0.7}
+                >
+                  <Users size={16} color={viewMode === 'groups' ? (isLightColor(primaryColor) && !isDarkMode ? getContrastText(primaryColor) : primaryColor) : subTextColor} />
+                  <Text className={`ml-2 font-bold text-xs`} style={{ color: viewMode === 'groups' ? (isLightColor(primaryColor) && !isDarkMode ? getContrastText(primaryColor) : primaryColor) : subTextColor }}>Groups</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  onPress={() => setViewMode('secret')}
+                  className={`flex-1 flex-row items-center justify-center py-3 rounded-2xl mx-1`}
+                  style={{ backgroundColor: viewMode === 'secret' ? (isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.05)' : `${primaryColor}20`) : surfaceLow }}
+                  activeOpacity={0.7}
+                >
+                  <Lock size={16} color={viewMode === 'secret' ? (isLightColor(primaryColor) && !isDarkMode ? getContrastText(primaryColor) : primaryColor) : subTextColor} />
+                  <Text className={`ml-2 font-bold text-xs`} style={{ color: viewMode === 'secret' ? (isLightColor(primaryColor) && !isDarkMode ? getContrastText(primaryColor) : primaryColor) : subTextColor }}>Secret</Text>
+                </TouchableOpacity>
+              </View>
+            }
+            ListEmptyComponent={
+              <View className="flex-1 items-center justify-center mt-20 px-8">
+                <View className="p-6 rounded-full mb-4" style={{ backgroundColor: surfaceHigh }}>
+                  {viewMode === 'secret' ? (
+                    <Lock size={48} color={primaryColor} />
+                  ) : viewMode === 'groups' ? (
+                    <Users size={48} color={primaryColor} />
+                  ) : (
+                    <MessageSquare size={48} color={primaryColor} />
+                  )}
+                </View>
+                <Text className="text-xl font-bold" style={{ color: textColor }}>
+                  {viewMode === 'secret' ? 'No Secret Chats' : viewMode === 'groups' ? 'No Groups Found' : 'No Chats Yet'}
+                </Text>
+                <Text className="text-center mt-2 mb-8 text-sm" style={{ color: subTextColor }}>
+                  {viewMode === 'secret' 
+                    ? 'Enable secret mode in a chat to hide it here' 
+                    : viewMode === 'groups'
+                    ? 'Join or create a group to start community chats'
+                    : 'Start a conversation with your friends in the Contacts tab!'}
+                </Text>
+                
+                {viewMode === 'private' && (
+                  <TouchableOpacity 
+                    onPress={() => navigation.navigate('Contacts')}
+                    className="bg-primary px-8 py-4 rounded-3xl shadow-lg"
+                    style={{ shadowColor: primaryColor }}
+                  >
+                    <Text className="text-white font-black uppercase tracking-widest text-xs">Find Friends</Text>
+                  </TouchableOpacity>
                 )}
               </View>
-              <Text className="text-xl font-bold text-onSurface">
-                {viewMode === 'secret' ? 'No Secret Chats' : viewMode === 'groups' ? 'No Groups Found' : 'No Chats Yet'}
-              </Text>
-              <Text className="text-onSurface-variant text-center mt-2 mb-8 text-sm">
-                {viewMode === 'secret' 
-                  ? 'Enable secret mode in a chat to hide it here' 
-                  : viewMode === 'groups'
-                  ? 'Join or create a group to start community chats'
-                  : 'Start a conversation with your friends in the Contacts tab!'}
-              </Text>
-              
-              {viewMode === 'private' && (
-                <TouchableOpacity 
-                  onPress={() => navigation.navigate('Contacts')}
-                  className="bg-primary px-8 py-4 rounded-3xl shadow-lg shadow-primary/20"
-                >
-                  <Text className="text-white font-black uppercase tracking-widest text-xs">Find Friends</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          }
-        />
+            }
+          />
+        </View>
       )}
     </View>
   );

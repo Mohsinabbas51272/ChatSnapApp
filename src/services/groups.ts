@@ -19,7 +19,7 @@ export interface GroupMessage {
   senderId: string;
   senderName: string;
   text: string;
-  type: 'text' | 'image';
+  type: 'text' | 'image' | 'snap' | 'voice';
   timestamp: any;
 }
 
@@ -57,7 +57,7 @@ export const subscribeToGroups = (userId: string, callback: (groups: Group[]) =>
 };
 
 // Send a message to a group
-export const sendGroupMessage = async (groupId: string, text: string, senderName: string, type: 'text' | 'image' = 'text') => {
+export const sendGroupMessage = async (groupId: string, text: string, senderName: string, type: 'text' | 'image' | 'snap' | 'voice' = 'text') => {
   const currentUser = auth.currentUser;
   if (!currentUser) return;
 

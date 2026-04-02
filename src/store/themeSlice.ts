@@ -9,10 +9,10 @@ export interface ThemeState {
 }
 
 const initialState: ThemeState = {
-  primaryColor: '#9ba8ff', // Electric Intimacy Primary
-  themeName: 'Electric Intimacy',
+  primaryColor: '#FFFFFF', // Pure White Default
+  themeName: 'Pure White',
   mood: 'Chill',
-  isDarkMode: true,
+  isDarkMode: false,
 };
 
 const moodMap: { [key: string]: { color: string; name: string } } = {
@@ -22,6 +22,7 @@ const moodMap: { [key: string]: { color: string; name: string } } = {
   'Zen': { color: '#778aff', name: 'Soft Primary' },
   'Deep': { color: '#c500e6', name: 'Deep Violet' },
   'Fire': { color: '#4963ff', name: 'Core Blue' },
+  'White': { color: '#FFFFFF', name: 'Pure White' },
 };
 
 // Persist theme to AsyncStorage

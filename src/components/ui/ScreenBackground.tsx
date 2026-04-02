@@ -16,7 +16,7 @@ const ScreenBackground: React.FC<ScreenBackgroundProps> = React.memo(({
   showWatermark = true, 
   showBubbles = true 
 }) => {
-  const { primaryColor } = useSelector((state: RootState) => state.theme);
+  const { primaryColor, isDarkMode } = useSelector((state: RootState) => state.theme);
   const { isTablet, getResponsiveContainerStyle } = useResponsive();
 
   const bubble1Style = useMemo(() => ({ backgroundColor: primaryColor, transform: [{ scale: 1.2 }] }), [primaryColor]);
@@ -24,7 +24,12 @@ const ScreenBackground: React.FC<ScreenBackgroundProps> = React.memo(({
   const bubble3Style = useMemo(() => ({ backgroundColor: primaryColor }), [primaryColor]);
 
   return (
-    <View className="flex-1 bg-surface">
+    <View 
+      style={{ 
+        backgroundColor: isDarkMode ? '#000000' : '#F8F9FF',
+        flex: 1 
+      }}
+    >
       <View style={getResponsiveContainerStyle()}>
         {children}
       </View>

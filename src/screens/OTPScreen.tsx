@@ -17,7 +17,7 @@ import ScreenBackground from '../components/ui/ScreenBackground';
 
 const OTPScreen = ({ navigation, route }: any) => {
   const { primaryColor } = useSelector((state: RootState) => state.theme);
-  const { isTablet } = useResponsive();
+  const { isTablet, getResponsiveContainerStyle } = useResponsive();
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -126,7 +126,7 @@ const OTPScreen = ({ navigation, route }: any) => {
 
   return (
     <ScreenBackground>
-      <StatusBar barStyle="light-content" backgroundColor={primaryColor} />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       
       <Header title="Verify Identity" showBack />
 
@@ -135,77 +135,79 @@ const OTPScreen = ({ navigation, route }: any) => {
         className="flex-1"
       >
         <ScrollView 
-          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }} 
-          className={`px-8 ${isTablet ? 'pb-32' : 'pb-12'}`}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: isTablet ? 'center' : 'flex-start' }} 
+          className="flex-1"
           showsVerticalScrollIndicator={false}
         >
-          <Animated.View 
-            entering={FadeInDown.duration(800)} 
-            className={`mb-12 ${isTablet ? 'items-center' : ''}`}
-          >
-            <View className="flex-row items-center self-start px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-6">
-              <ShieldCheck size={16} color={primaryColor} />
-              <Text className="text-primary text-[10px] uppercase tracking-widest font-bold ml-2">Hardware-Backed Security</Text>
-            </View>
-            
-            <Text className={`${isTablet ? 'text-7xl text-center' : 'text-4xl'} font-black text-onSurface tracking-tighter`}>Enter Code</Text>
-            <Text className={`text-onSurface-variant ${isTablet ? 'text-2xl text-center mt-6' : 'text-lg mt-2'} font-medium`}>
-              We've sent a code to{' '}
-              <Text className="text-onSurface font-bold">{phoneNumber}</Text>
-            </Text>
-          </Animated.View>
- 
-          <Animated.View 
-            entering={FadeInUp.delay(300).duration(800)} 
-            className={`flex-1 space-y-8 ${isTablet ? 'max-w-md self-center w-full' : ''}`}
-          >
-            <View>
-              <Text className="text-onSurface-variant text-[10px] font-black uppercase tracking-widest mb-2 ml-1">6-Digit Code</Text>
-              <Input
-                placeholder="112233"
-                keyboardType="number-pad"
-                maxLength={6}
-                value={otp}
-                onChangeText={(text) => {
-                  setOtp(text);
-                  if (error) setError('');
-                }}
-                autoFocus
-                textAlign="center"
-                style={{ fontSize: 32, letterSpacing: 8, fontWeight: 'bold', paddingLeft: 8, lineHeight: 40 }}
-                inputContainerClassName="px-0 py-6"
-                error={error}
-              />
-            </View>
+          <View style={getResponsiveContainerStyle()} className="px-6">
+            <Animated.View 
+              entering={FadeInDown.duration(800)} 
+              className={`mb-12 ${isTablet ? 'items-center' : ''}`}
+            >
+              <View className="flex-row items-center self-start px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-6">
+                <ShieldCheck size={16} color={primaryColor} />
+                <Text className="text-primary text-[10px] uppercase tracking-widest font-bold ml-2">Hardware-Backed Security</Text>
+              </View>
+              
+              <Text className={`${isTablet ? 'text-7xl text-center' : 'text-4xl'} font-black text-onSurface tracking-tighter`}>Enter Code</Text>
+              <Text className={`text-onSurface-variant ${isTablet ? 'text-2xl text-center mt-6' : 'text-lg mt-2'} font-medium`}>
+                We've sent a code to{' '}
+                <Text className="text-onSurface font-bold">{phoneNumber}</Text>
+              </Text>
+            </Animated.View>
+   
+            <Animated.View 
+              entering={FadeInUp.delay(300).duration(800)} 
+              className={`space-y-8 ${isTablet ? 'max-w-md self-center w-full' : ''}`}
+            >
+              <View>
+                <Text className="text-onSurface-variant text-[10px] font-black uppercase tracking-widest mb-2 ml-1">6-Digit Code</Text>
+                <Input
+                  placeholder="112233"
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  value={otp}
+                  onChangeText={(text) => {
+                    setOtp(text);
+                    if (error) setError('');
+                  }}
+                  autoFocus
+                  textAlign="center"
+                  style={{ fontSize: 32, letterSpacing: 8, fontWeight: 'bold', paddingLeft: 8, lineHeight: 40 }}
+                  inputContainerClassName="px-0 py-6"
+                  error={error}
+                />
+              </View>
 
-            <View className="flex-1 justify-end pb-8">
-                <TouchableOpacity 
-                    onPress={handleVerify}
-                    disabled={otp.length !== 6 || loading}
-                    className="w-full py-5 rounded-[24px] items-center mt-6 shadow-xl"
-                    style={{ 
-                        backgroundColor: otp.length === 6 ? primaryColor : 'rgba(255,255,255,0.05)', 
-                        opacity: loading ? 0.7 : 1,
-                        shadowColor: primaryColor,
-                        shadowOffset: { width: 0, height: 10 },
-                        shadowOpacity: 0.3,
-                        shadowRadius: 20,
-                        elevation: otp.length === 6 ? 8 : 0
-                    }}
-                >
-                    <Text 
-                        style={{ color: otp.length === 6 ? 'white' : 'rgba(255,255,255,0.2)' }} 
-                        className="text-sm font-black uppercase tracking-widest"
-                    >
-                        {loading ? 'Verifying...' : 'Verify & Continue'}
-                    </Text>
-                </TouchableOpacity>
+              <View className="flex-1 justify-end pb-8">
+                  <TouchableOpacity 
+                      onPress={handleVerify}
+                      disabled={otp.length !== 6 || loading}
+                      className="w-full py-5 rounded-[24px] items-center mt-6 shadow-xl"
+                      style={{ 
+                          backgroundColor: otp.length === 6 ? primaryColor : 'rgba(255,255,255,0.05)', 
+                          opacity: loading ? 0.7 : 1,
+                          shadowColor: primaryColor,
+                          shadowOffset: { width: 0, height: 10 },
+                          shadowOpacity: 0.3,
+                          shadowRadius: 20,
+                          elevation: otp.length === 6 ? 8 : 0
+                      }}
+                  >
+                      <Text 
+                          style={{ color: otp.length === 6 ? 'white' : 'rgba(255,255,255,0.2)' }} 
+                          className="text-sm font-black uppercase tracking-widest"
+                      >
+                          {loading ? 'Verifying...' : 'Verify & Continue'}
+                      </Text>
+                  </TouchableOpacity>
 
-                <TouchableOpacity className="mt-8 self-center px-4 py-2">
-                    <Text className="text-onSurface-variant font-bold text-[10px] uppercase tracking-widest">Resend Code in 0:59</Text>
-                </TouchableOpacity>
-            </View>
-          </Animated.View>
+                  <TouchableOpacity className="mt-8 self-center px-4 py-2">
+                      <Text className="text-onSurface-variant font-bold text-[10px] uppercase tracking-widest">Resend Code in 0:59</Text>
+                  </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenBackground>

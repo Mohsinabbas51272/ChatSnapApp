@@ -36,47 +36,7 @@ LogBox.ignoreLogs(['expo-notifications: Android Push notifications', 'Non-serial
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 /**
- * Main Content Component: Handles screen switching based on auth state.
- * Memoized to prevent re-renders when parent is reconciled (e.g., keyboard opening).
- */
-const MainNavigator = React.memo(() => {
-    const auth = useSelector((state: RootState) => state.auth);
-    const [isSplashDone, setIsSplashDone] = useState(false);
-
-    useEffect(() => {
-        const timer = setTimeout(() => setIsSplashDone(true), 2500);
-        return () => clearTimeout(timer);
-    }, []);
-
-    return (
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-            {!isSplashDone ? (
-                <Stack.Screen name="Splash" component={SplashScreen} />
-            ) : !auth.uid ? (
-                <>
-                    <Stack.Screen name="Landing" component={LandingScreen} />
-                    <Stack.Screen name="Register" component={RegisterScreen} />
-                    <Stack.Screen name="Login" component={LoginScreen} />
-                    <Stack.Screen name="OTP" component={OTPScreen} />
-                </>
-            ) : (
-                <>
-                    <Stack.Screen name="Home" component={HomeScreen} />
-                    <Stack.Screen name="Chat" component={ChatScreen} />
-                    <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
-                    <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen} />
-                    <Stack.Screen name="Settings" component={SettingsScreen} />
-                    <Stack.Screen name="QRProfile" component={QRProfileScreen} />
-                    <Stack.Screen name="QRScanner" component={QRScannerScreen} />
-                </>
-            )}
-        </Stack.Navigator>
-    );
-});
-
-/**
  * Background Logic: Handles side effects like listeners and theme sync.
- * This runs inside NavigationContainer but doesn't render anything itself.
  */
 const BackgroundLogic = () => {
     const auth = useSelector((state: RootState) => state.auth);
@@ -86,15 +46,15 @@ const BackgroundLogic = () => {
 
     useEffect(() => {
         const init = async () => {
-            const saved = await AsyncStorage.getItem('user');
-            if (saved) dispatch(setUser(JSON.parse(saved)));
+            try {
+                const saved = await AsyncStorage.getItem('user');
+                if (saved) dispatch(setUser(JSON.parse(saved)));
 
-            const savedTheme = await AsyncStorage.getItem('theme');
-            if (savedTheme) {
-                try {
+                const savedTheme = await AsyncStorage.getItem('theme');
+                if (savedTheme) {
                     dispatch(restoreTheme(JSON.parse(savedTheme)));
-                } catch (e) {}
-            }
+                }
+            } catch (e) {}
             
             const granted = await requestNotificationPermissions();
             if (granted) setupNotificationListeners(() => {}, () => {});
@@ -103,15 +63,24 @@ const BackgroundLogic = () => {
 
         const unsub = firebaseAuth.onAuthStateChanged(async (user) => {
             if (user) {
+                // Anonymous auth block: automatically logout if anonymous session detected
+                if (user.isAnonymous) {
+                    await firebaseAuth.signOut();
+                    dispatch(logout());
+                    return;
+                }
                 try {
                     const userDoc = await getDoc(doc(db, 'users', user.uid));
                     if (userDoc.exists()) {
                         const data = userDoc.data();
-                        dispatch(setUser({ uid: user.uid, phoneNumber: data.phoneNumber || null, ...data }));
+                        const userData = { uid: user.uid, phoneNumber: data.phoneNumber || null, ...data };
+                        dispatch(setUser(userData));
+                        await AsyncStorage.setItem('user', JSON.stringify(userData));
                     }
                 } catch (e) {}
             } else {
                 dispatch(logout());
+                await AsyncStorage.removeItem('user');
             }
         });
 
@@ -139,10 +108,12 @@ const BackgroundLogic = () => {
 };
 
 /**
- * Root Component: Provides stable NavigationContainer.
+ * Root Component: Provides stable NavigationContainer and handles UI structure.
  */
-const RootNavigator = () => {
+const RootApp = () => {
+    const auth = useSelector((state: RootState) => state.auth);
     const { primaryColor, isDarkMode } = useSelector((state: RootState) => state.theme);
+    const [isSplashDone, setIsSplashDone] = useState(false);
 
     const MyTheme = useMemo(() => ({
         dark: isDarkMode,
@@ -150,7 +121,7 @@ const RootNavigator = () => {
             ...DefaultTheme.colors,
             primary: primaryColor,
             background: isDarkMode ? '#101419' : '#FFFFFF',
-            card: isDarkMode ? '#181C24' : '#FFFFFF',
+            card: isDarkMode ? '#181C24' : primaryColor,
             text: isDarkMode ? '#E2E8F0' : '#1A1C1E',
             border: 'transparent',
             notification: primaryColor,
@@ -163,10 +134,36 @@ const RootNavigator = () => {
         }
     }), [primaryColor, isDarkMode]);
 
+    useEffect(() => {
+        const timer = setTimeout(() => setIsSplashDone(true), 2500);
+        return () => clearTimeout(timer);
+    }, []);
+
     return (
         <NavigationContainer theme={MyTheme as any}>
             <BackgroundLogic />
-            <MainNavigator />
+            <Stack.Navigator screenOptions={{ headerShown: false }}>
+                {!isSplashDone ? (
+                    <Stack.Screen name="Splash" component={SplashScreen} />
+                ) : !auth.uid ? (
+                    <>
+                        <Stack.Screen name="Landing" component={LandingScreen} />
+                        <Stack.Screen name="Register" component={RegisterScreen} />
+                        <Stack.Screen name="Login" component={LoginScreen} />
+                        <Stack.Screen name="OTP" component={OTPScreen} />
+                    </>
+                ) : (
+                    <>
+                        <Stack.Screen name="Home" component={HomeScreen} />
+                        <Stack.Screen name="Chat" component={ChatScreen} />
+                        <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
+                        <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen} />
+                        <Stack.Screen name="Settings" component={SettingsScreen} />
+                        <Stack.Screen name="QRProfile" component={QRProfileScreen} />
+                        <Stack.Screen name="QRScanner" component={QRScannerScreen} />
+                    </>
+                )}
+            </Stack.Navigator>
         </NavigationContainer>
     );
 };
@@ -175,7 +172,7 @@ export default function App() {
     return (
         <Provider store={store}>
             <SafeAreaProvider>
-                <RootNavigator />
+                <RootApp />
             </SafeAreaProvider>
         </Provider>
     );

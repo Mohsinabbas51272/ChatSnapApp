@@ -169,12 +169,10 @@ export const subscribeToMessages = (
   const conversationId = [userId1, userId2].sort().join('_');
   const messagesRef = collection(db, 'messages');
   
-  // Sort newest first to ensure we get the LATEST messages in the limit
+  // Remove orderBy to avoid composite index requirement
   const q = query(
     messagesRef,
-    where('conversationId', '==', conversationId),
-    orderBy('timestamp', 'desc'),
-    limit(50)
+    where('conversationId', '==', conversationId)
   );
 
   return onSnapshot(q, (snapshot) => {

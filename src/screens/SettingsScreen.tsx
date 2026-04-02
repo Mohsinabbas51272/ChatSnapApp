@@ -10,10 +10,12 @@ import { useNavigation } from '@react-navigation/native';
 import { setTheme, setMood, toggleDarkMode } from '../store/themeSlice';
 import ScreenBackground from '../components/ui/ScreenBackground';
 import { subscribeToFriends } from '../services/social';
-import { QrCode, X, Copy } from 'lucide-react-native';
+import { QrCode, X, Copy, Info } from 'lucide-react-native';
+import { useResponsive } from '../hooks/useResponsive';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../services/firebaseConfig';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { isLightColor, getContrastText } from '../services/colors';
 
 const themeColors = [
   { name: 'Electric', color: '#9ba8ff' },
@@ -22,37 +24,48 @@ const themeColors = [
   { name: 'Core', color: '#4963ff' },
   { name: 'Deep', color: '#c500e6' },
   { name: 'Zen', color: '#778aff' },
+  { name: 'White', color: '#FFFFFF' },
 ];
 
-const SettingItem = memo(({ icon: Icon, title, value, color = '#f0f0fd', onPress, hasSwitch = false, switchValue = false, onSwitchChange }: any) => (
-    <TouchableOpacity 
-        onPress={hasSwitch ? undefined : onPress}
-        className="flex-row items-center p-5 bg-surface-container-low rounded-xl mb-2"
-        activeOpacity={hasSwitch ? 1 : 0.7}
-    >
-        <View className="w-12 h-12 rounded-full bg-surface-container-highest items-center justify-center">
-            <Icon size={20} color={color} />
-        </View>
-        <View className="flex-1 ml-4">
-            <Text className="text-base font-semibold text-onSurface">{title}</Text>
-            {value && <Text className="text-onSurface-variant text-sm mt-0.5">{value}</Text>}
-        </View>
-        {hasSwitch ? (
-            <Switch 
-                value={switchValue} 
-                onValueChange={onSwitchChange}
-                trackColor={{ false: '#222532', true: color }}
-                thumbColor={switchValue ? 'white' : '#737580'}
-            />
-        ) : (
-            <ChevronRight size={18} color="#464752" />
-        )}
-    </TouchableOpacity>
-));
+const SettingItem = memo(({ icon: Icon, title, value, color = '#f0f0fd', onPress, hasSwitch = false, switchValue = false, onSwitchChange }: any) => {
+    const { isDarkMode } = useSelector((state: RootState) => state.theme);
+    const textColor = isDarkMode ? '#FFFFFF' : '#1a1c1e';
+    const subTextColor = isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.5)';
+    const surfaceLow = isDarkMode ? '#000000' : '#F0F2FA';
+    const surfaceHigh = isDarkMode ? '#000000' : '#E8EAF6';
+
+    return (
+        <TouchableOpacity 
+            onPress={hasSwitch ? undefined : onPress}
+            className="flex-row items-center p-5 rounded-xl mb-2"
+            style={{ backgroundColor: surfaceLow }}
+            activeOpacity={hasSwitch ? 1 : 0.7}
+        >
+            <View className="w-12 h-12 rounded-full items-center justify-center" style={{ backgroundColor: surfaceHigh }}>
+                <Icon size={20} color={color} />
+            </View>
+            <View className="flex-1 ml-4">
+                <Text className="text-base font-semibold" style={{ color: textColor }}>{title}</Text>
+                {value && <Text className="text-sm mt-0.5" style={{ color: subTextColor }}>{value}</Text>}
+            </View>
+            {hasSwitch ? (
+                <Switch 
+                    value={switchValue} 
+                    onValueChange={onSwitchChange}
+                    trackColor={{ false: isDarkMode ? '#222532' : '#94A3B8', true: color }}
+                    thumbColor={switchValue ? 'white' : '#737580'}
+                />
+            ) : (
+                <ChevronRight size={18} color={subTextColor} />
+            )}
+        </TouchableOpacity>
+    );
+});
 
 const SettingsScreen = () => {
     const user = useSelector((state: RootState) => state.auth);
     const { primaryColor, themeName, mood, isDarkMode } = useSelector((state: RootState) => state.theme);
+    const { isTablet, getResponsiveContainerStyle } = useResponsive();
     const dispatch = useDispatch();
     const navigation = useNavigation<any>();
     const [friendCount, setFriendCount] = React.useState(0);
@@ -108,17 +121,23 @@ const SettingsScreen = () => {
         }
     };
 
+    const textColor = isDarkMode ? '#FFFFFF' : '#1a1c1e';
+    const subTextColor = isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.5)';
+    const surfaceLow = isDarkMode ? '#000000' : '#F0F2FA';
+    const surfaceHigh = isDarkMode ? '#000000' : '#E8EAF6';
+
     return (
         <ScreenBackground showBubbles={false}>
-            <StatusBar barStyle="light-content" backgroundColor={primaryColor} />
-            <ScrollView showsVerticalScrollIndicator={false} className="flex-1 px-5 pt-8">
+            <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
+            <ScrollView showsVerticalScrollIndicator={false} className="flex-1 pt-8">
+                <View style={getResponsiveContainerStyle()} className="px-5">
                 {/* Profile Section */}
                 <TouchableOpacity onPress={() => navigation.navigate('ProfileSetup')} className="items-center py-8">
                     <View className="relative">
                         {/* Gradient glow behind avatar */}
                         <View className="absolute -inset-1 rounded-full opacity-25" 
                               style={{ backgroundColor: primaryColor }} />
-                        <View className="w-32 h-32 rounded-full bg-surface-container-highest items-center justify-center overflow-hidden p-1">
+                        <View className="w-32 h-32 rounded-full items-center justify-center overflow-hidden p-1" style={{ backgroundColor: surfaceHigh }}>
                             {user.photoURL ? (
                                 <Image source={{ uri: user.photoURL }} className="w-full h-full rounded-full" />
                             ) : (
@@ -128,27 +147,27 @@ const SettingsScreen = () => {
                             )}
                         </View>
                         {/* Edit button bubble */}
-                        <View className="absolute bottom-0 right-0 w-9 h-9 rounded-full items-center justify-center border-2 border-surface"
-                              style={{ backgroundColor: primaryColor }}>
-                            <CameraIcon size={16} color="white" />
+                        <View className="absolute bottom-0 right-0 w-9 h-9 rounded-full items-center justify-center border-2"
+                              style={{ backgroundColor: primaryColor, borderColor: isDarkMode ? '#000000' : '#F8F9FF' }}>
+                            <CameraIcon size={16} color={getContrastText(primaryColor)} />
                         </View>
                     </View>
-                    <Text className="text-3xl font-black mt-4 text-onSurface tracking-tight">{user.displayName || 'Anonymous'}</Text>
-                    <Text className="text-onSurface-variant font-medium">{user.phoneNumber}</Text>
+                    <Text className="text-3xl font-black mt-4 tracking-tight" style={{ color: textColor }}>{user.displayName || 'Anonymous'}</Text>
+                    <Text className="font-medium" style={{ color: subTextColor }}>{user.phoneNumber}</Text>
                 </TouchableOpacity>
 
                 {/* Stats Grid */}
                 <View className="flex-row mb-8">
-                    <View className="flex-1 bg-surface-container-low rounded-xl p-4 items-center mr-2 shadow-sm">
-                        <Text className="text-xs uppercase tracking-widest text-onSurface-variant mb-1">Friends</Text>
-                        <Text className="text-xl font-bold text-primary">{friendCount}</Text>
+                    <View className="flex-1 rounded-xl p-4 items-center mr-2 shadow-sm" style={{ backgroundColor: surfaceLow }}>
+                        <Text className="text-xs uppercase tracking-widest mb-1" style={{ color: subTextColor }}>Friends</Text>
+                        <Text className="text-xl font-bold" style={{ color: isLightColor(primaryColor) && !isDarkMode ? '#000000' : primaryColor }}>{friendCount}</Text>
                     </View>
-                    <View className="flex-1 bg-surface-container-low rounded-xl p-4 items-center mx-1">
-                        <Text className="text-xs uppercase tracking-widest text-onSurface-variant mb-1">Snaps</Text>
+                    <View className="flex-1 rounded-xl p-4 items-center mx-1" style={{ backgroundColor: surfaceLow }}>
+                        <Text className="text-xs uppercase tracking-widest mb-1" style={{ color: subTextColor }}>Snaps</Text>
                         <Text className="text-xl font-bold text-tertiary">{snapCount || 0}</Text>
                     </View>
-                    <View className="flex-1 bg-surface-container-low rounded-xl p-4 items-center ml-2">
-                        <Text className="text-xs uppercase tracking-widest text-onSurface-variant mb-1">Privacy</Text>
+                    <View className="flex-1 rounded-xl p-4 items-center ml-2" style={{ backgroundColor: surfaceLow }}>
+                        <Text className="text-xs uppercase tracking-widest mb-1" style={{ color: subTextColor }}>Privacy</Text>
                         <Text className="text-xl font-bold text-secondary">98%</Text>
                     </View>
                 </View>
@@ -157,75 +176,80 @@ const SettingsScreen = () => {
                 <View className="flex-row mb-8">
                     <TouchableOpacity 
                         onPress={() => navigation.navigate('ProfileSetup')}
-                        className="flex-1 py-4 px-6 rounded-2xl bg-surface-container-low items-center justify-center flex-row mr-2 shadow-sm"
-                        style={{ borderLeftWidth: 4, borderLeftColor: primaryColor }}
+                        className="flex-1 py-4 px-6 rounded-2xl items-center justify-center flex-row mr-2 shadow-sm"
+                        style={{ borderLeftWidth: 4, borderLeftColor: primaryColor, backgroundColor: surfaceLow }}
                     >
                         <Edit3 size={18} color={primaryColor} />
-                        <Text className="font-bold text-onSurface ml-2">Edit Profile</Text>
+                        <Text className="font-bold ml-2" style={{ color: textColor }}>Edit Profile</Text>
                     </TouchableOpacity>
                     <TouchableOpacity 
                         onPress={() => setShowQR(true)}
-                        className="flex-1 py-4 px-6 rounded-2xl bg-surface-container-low items-center justify-center flex-row shadow-sm"
-                        style={{ borderRightWidth: 4, borderRightColor: '#9ba8ff' }}
+                        className="flex-1 py-4 px-6 rounded-2xl items-center justify-center flex-row shadow-sm"
+                        style={{ borderRightWidth: 4, borderRightColor: '#9ba8ff', backgroundColor: surfaceLow }}
                     >
                         <QrCode size={18} color="#9ba8ff" />
-                        <Text className="font-bold text-onSurface ml-2">SnapCode</Text>
+                        <Text className="font-bold ml-2" style={{ color: textColor }}>SnapCode</Text>
                     </TouchableOpacity>
                 </View>
 
                 {/* Bento Cards */}
                 <View className="flex-row mb-6">
-                    <View className="flex-1 bg-surface-container rounded-xl p-6 h-40 justify-between mr-2">
-                        <Text className="text-primary-fixed text-sm uppercase tracking-widest">Privacy Score</Text>
+                    <View className="flex-1 rounded-xl p-6 h-40 justify-between mr-2" style={{ backgroundColor: surfaceLow }}>
+                        <Text className="text-sm uppercase tracking-widest" style={{ color: primaryColor }}>Privacy Score</Text>
                         <View>
-                            <Text className="text-4xl font-black tracking-tighter text-onSurface">98%</Text>
-                            <Text className="text-onSurface-variant text-xs mt-1">Highly Secured</Text>
+                            <Text className="text-4xl font-black tracking-tighter" style={{ color: textColor }}>98%</Text>
+                            <Text className="text-xs mt-1" style={{ color: subTextColor }}>Highly Secured</Text>
                         </View>
                     </View>
                     <View className="flex-1 rounded-xl p-6 h-40 justify-between ml-2"
                           style={{ 
-                            backgroundColor: '#4963ff',
-                            shadowColor: '#9ba8ff',
+                            backgroundColor: isDarkMode ? '#000000' : '#4963ff',
+                            borderWidth: isDarkMode ? 1 : 0,
+                            borderColor: primaryColor,
+                            shadowColor: isDarkMode ? primaryColor : '#4963ff',
                             shadowOffset: { width: 0, height: 4 },
-                            shadowOpacity: 0.1,
+                            shadowOpacity: isDarkMode ? 0.3 : 0.2,
                             shadowRadius: 8,
                             elevation: 4,
                           }}>
                         <Text className="text-white/80 text-sm uppercase tracking-widest">Snap Premium</Text>
-                        <TouchableOpacity className="bg-white/20 py-2 px-4 rounded-full self-start">
+                        <TouchableOpacity 
+                            className="py-2 px-4 rounded-full self-start"
+                            style={{ backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.2)' }}
+                        >
                             <Text className="text-white text-sm font-bold">Manage Plan</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
 
                 {/* Dark Mode Toggle */}
-                <View className="bg-surface-container-low rounded-xl p-5 mb-2 flex-row items-center justify-between">
+                <View className="rounded-xl p-5 mb-2 flex-row items-center justify-between" style={{ backgroundColor: surfaceLow }}>
                     <View className="flex-row items-center">
-                         <View className="w-12 h-12 rounded-full bg-surface-container-highest items-center justify-center">
+                         <View className="w-12 h-12 rounded-full items-center justify-center" style={{ backgroundColor: surfaceHigh }}>
                             {isDarkMode ? <Moon size={20} color={primaryColor} /> : <Sun size={20} color="#ffb020" />}
                          </View>
                          <View className="ml-4">
-                            <Text className="text-base font-semibold text-onSurface">Dark Mode</Text>
-                            <Text className="text-xs text-onSurface-variant">{isDarkMode ? 'On' : 'Off'}</Text>
+                            <Text className="text-base font-semibold" style={{ color: textColor }}>Dark Mode</Text>
+                            <Text className="text-xs" style={{ color: subTextColor }}>{isDarkMode ? 'On' : 'Off'}</Text>
                          </View>
                     </View>
                     <Switch
                         value={isDarkMode}
                         onValueChange={() => { dispatch(toggleDarkMode()); }}
-                        trackColor={{ false: '#767577', true: primaryColor }}
+                        trackColor={{ false: isDarkMode ? '#222532' : '#94A3B8', true: primaryColor }}
                         thumbColor={'#fff'}
                     />
                 </View>
 
                 {/* Theme Color */}
-                <View className="bg-surface-container-low rounded-xl p-5 mb-2">
+                <View className="rounded-xl p-5 mb-2" style={{ backgroundColor: surfaceLow }}>
                     <View className="flex-row items-center mb-4">
-                         <View className="w-12 h-12 rounded-full bg-surface-container-highest items-center justify-center">
+                         <View className="w-12 h-12 rounded-full items-center justify-center" style={{ backgroundColor: surfaceHigh }}>
                             <Palette size={20} color="#9ba8ff" />
                          </View>
                          <View className="ml-4 flex-1">
-                            <Text className="text-base font-semibold text-onSurface">Theme Color</Text>
-                            <Text className="text-xs text-onSurface-variant">{themeName}</Text>
+                            <Text className="text-base font-semibold" style={{ color: textColor }}>Theme Color</Text>
+                            <Text className="text-xs" style={{ color: subTextColor }}>{themeName}</Text>
                          </View>
                     </View>
                     <View className="flex-row justify-between pr-4 mt-2">
@@ -239,7 +263,7 @@ const SettingsScreen = () => {
                                     height: 36,
                                     borderRadius: 18,
                                     borderWidth: primaryColor === item.color ? 3 : 0,
-                                    borderColor: '#f0f0fd'
+                                    borderColor: isDarkMode ? '#FFFFFF' : '#000000'
                                 }}
                             />
                         ))}
@@ -247,14 +271,14 @@ const SettingsScreen = () => {
                 </View>
 
                 {/* Mood */}
-                <View className="bg-surface-container-low rounded-xl p-5 mb-2">
+                <View className="rounded-xl p-5 mb-2" style={{ backgroundColor: surfaceLow }}>
                     <View className="flex-row items-center mb-4">
-                         <View className="w-12 h-12 rounded-full bg-surface-container-highest items-center justify-center">
+                         <View className="w-12 h-12 rounded-full items-center justify-center" style={{ backgroundColor: surfaceHigh }}>
                             <Sparkles size={20} color="#e966ff" />
                          </View>
                          <View className="ml-4 flex-1">
-                            <Text className="text-base font-semibold text-onSurface">Current Mood</Text>
-                            <Text className="text-xs text-onSurface-variant">{mood}</Text>
+                            <Text className="text-base font-semibold" style={{ color: textColor }}>Current Mood</Text>
+                            <Text className="text-xs" style={{ color: subTextColor }}>{mood}</Text>
                          </View>
                     </View>
                     <View className="flex-row justify-between pr-4 mt-2">
@@ -273,16 +297,16 @@ const SettingsScreen = () => {
                             >
                                 <View 
                                     style={{ 
-                                        backgroundColor: mood === item.name ? primaryColor : '#222532',
+                                        backgroundColor: mood === item.name ? primaryColor : surfaceHigh,
                                         width: 44,
                                         height: 44,
                                         borderRadius: 22,
                                     }}
                                     className="items-center justify-center mb-1"
                                 >
-                                    <item.icon size={20} color={mood === item.name ? 'white' : '#737580'} />
+                                    <item.icon size={20} color={mood === item.name ? getContrastText(primaryColor) : subTextColor} />
                                 </View>
-                                <Text className="text-[10px] font-bold text-onSurface-variant">{item.name}</Text>
+                                <Text className="text-[10px] font-bold" style={{ color: subTextColor }}>{item.name}</Text>
                             </TouchableOpacity>
                         ))}
                     </View>
@@ -334,15 +358,17 @@ const SettingsScreen = () => {
                 {/* Logout */}
                 <TouchableOpacity 
                     onPress={handleLogout}
-                    className="flex-row items-center justify-center py-5 rounded-2xl bg-surface-container-low mt-6 mb-4"
+                    className="flex-row items-center justify-center py-5 rounded-2xl mt-6 mb-4"
+                    style={{ backgroundColor: surfaceLow }}
                     activeOpacity={0.7}
                 >
                     <LogOut size={20} color="#ff6e85" />
-                    <Text className="ml-2 text-secondary text-lg font-bold">Logout</Text>
+                    <Text className="ml-2 text-lg font-bold" style={{ color: textColor }}>Logout</Text>
                 </TouchableOpacity>
 
                 <View className="py-8 items-center pb-32">
-                    <Text className="text-onSurface-variant/40 text-[10px] uppercase tracking-widest">ChatSnap v4.2.0 • Build 992</Text>
+                    <Text className="text-[10px] uppercase tracking-widest" style={{ color: subTextColor, opacity: 0.4 }}>ChatSnap v4.2.0 • Build 992</Text>
+                </View>
                 </View>
 
                 {/* QR Code Modal */}
@@ -353,27 +379,29 @@ const SettingsScreen = () => {
                     onRequestClose={() => setShowQR(false)}
                 >
                     <TouchableOpacity 
-                        className="flex-1 bg-black/80 items-center justify-center"
+                        className="flex-1 bg-black/80 items-center justify-center p-6"
                         activeOpacity={1}
                         onPress={() => setShowQR(false)}
                     >
-                        <View className="bg-surface rounded-[40px] p-10 items-center w-[85%]"
+                        <View className={`rounded-[40px] p-10 items-center w-full ${isTablet ? 'max-w-md' : ''}`}
+                              style={{ backgroundColor: isDarkMode ? '#0f111a' : '#FFFFFF' }}
                               onStartShouldSetResponder={() => true}
                               onResponderRelease={(e) => e.stopPropagation()}
                         >
                             <TouchableOpacity 
-                                className="absolute top-6 right-6 p-2 bg-surface-container-highest rounded-full"
+                                className="absolute top-6 right-6 p-2 rounded-full"
+                                style={{ backgroundColor: surfaceHigh }}
                                 onPress={() => setShowQR(false)}
                             >
-                                <X size={20} color="#737580" />
+                                <X size={20} color={subTextColor} />
                             </TouchableOpacity>
 
                             <View className="items-center mb-8">
-                                <View className="w-16 h-16 rounded-full bg-primary/10 items-center justify-center mb-4">
+                                <View className="w-16 h-16 rounded-full items-center justify-center mb-4" style={{ backgroundColor: `${primaryColor}15` }}>
                                     <QrCode size={32} color={primaryColor} />
                                 </View>
-                                <Text className="text-2xl font-black text-onSurface tracking-tight">My SnapCode</Text>
-                                <Text className="text-onSurface-variant text-sm mt-1">Scan this to add me</Text>
+                                <Text className="text-2xl font-black tracking-tight" style={{ color: textColor }}>My SnapCode</Text>
+                                <Text className="text-sm mt-1" style={{ color: subTextColor }}>Scan this to add me</Text>
                             </View>
 
                             <View className="p-6 bg-white rounded-3xl mb-8 shadow-2xl">
@@ -383,10 +411,10 @@ const SettingsScreen = () => {
                                 />
                             </View>
 
-                            <View className="bg-surface-container-low p-4 rounded-2xl flex-row items-center w-full mb-2">
+                            <View className="p-4 rounded-2xl flex-row items-center w-full mb-2" style={{ backgroundColor: surfaceLow }}>
                                 <View className="flex-1">
-                                    <Text className="text-[10px] uppercase font-bold text-onSurface-variant mb-1">User ID</Text>
-                                    <Text className="text-xs font-mono text-primary font-bold" numberOfLines={1}>{user.uid}</Text>
+                                    <Text className="text-[10px] uppercase font-bold mb-1" style={{ color: subTextColor }}>User ID</Text>
+                                    <Text className="text-xs font-mono font-bold" style={{ color: primaryColor }} numberOfLines={1}>{user.uid}</Text>
                                 </View>
                                 <TouchableOpacity className="p-2 ml-4">
                                     <Copy size={18} color={primaryColor} />

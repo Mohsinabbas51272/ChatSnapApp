@@ -18,7 +18,7 @@ import { useResponsive } from '../hooks/useResponsive';
 import ScreenBackground from '../components/ui/ScreenBackground';
 
 const ProfileSetupScreen = () => {
-  const { isTablet } = useResponsive();
+  const { isTablet, getResponsiveContainerStyle } = useResponsive();
   const { primaryColor } = useSelector((state: RootState) => state.theme);
   const authState = useSelector((state: RootState) => state.auth);
   const [displayName, setDisplayName] = useState(authState.displayName || '');
@@ -86,65 +86,67 @@ const ProfileSetupScreen = () => {
 
   return (
     <ScreenBackground>
-      <StatusBar barStyle="light-content" backgroundColor={primaryColor} />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       <Header title="Setup Profile" showBack navigation={navigation} />
 
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
         className="flex-1"
       >
-        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: isTablet ? 'center' : 'flex-start' }} className="px-6 py-8">
-          <Animated.View 
-            entering={FadeInDown.duration(800)}
-            className={`mb-10 ${isTablet ? 'items-center' : ''}`}
-          >
-            <Text className={`text-onSurface-variant ${isTablet ? 'text-2xl text-center' : 'font-medium'}`}>Let others know who you are by adding a name and photo.</Text>
-          </Animated.View>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: isTablet ? 'center' : 'flex-start' }} className="py-8">
+          <View style={getResponsiveContainerStyle()} className="px-6">
+            <Animated.View 
+              entering={FadeInDown.duration(800)}
+              className={`mb-10 ${isTablet ? 'items-center' : ''}`}
+            >
+              <Text className={`text-onSurface-variant ${isTablet ? 'text-2xl text-center' : 'font-medium'}`}>Let others know who you are by adding a name and photo.</Text>
+            </Animated.View>
 
-          <View className={`items-center mb-10 ${isTablet ? 'mt-8' : 'mt-12'}`}>
-            <TouchableOpacity onPress={pickImage} className="relative">
-              <View className={`${isTablet ? 'w-48 h-48' : 'w-32 h-32'} bg-surface-container-highest rounded-full items-center justify-center overflow-hidden border-2 border-dashed border-outline-variant`}>
-                {image ? (
-                  <Image source={{ uri: image }} className="w-full h-full" />
-                ) : (
-                  <User size={isTablet ? 100 : 60} color="#464752" />
-                )}
-              </View>
-              <View className="absolute bottom-1 right-1 p-2 rounded-full border-4 border-surface"
-                    style={{ backgroundColor: '#4963ff' }}>
-                <Camera size={isTablet ? 30 : 20} color="white" />
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          <View className={`space-y-6 ${isTablet ? 'max-w-md self-center w-full' : ''}`}>
-            <View>
-              <Text className="text-outline text-[10px] font-bold uppercase tracking-widest ml-1 mb-2">Display Name</Text>
-              <TextInput
-                className="w-full bg-surface-container-low rounded-2xl px-5 py-4 text-lg text-onSurface border border-outline-variant/10"
-                placeholder="How do you want to be seen?"
-                placeholderTextColor="#464752"
-                value={displayName}
-                onChangeText={setDisplayName}
-              />
+            <View className={`items-center mb-10 ${isTablet ? 'mt-8' : 'mt-12'}`}>
+              <TouchableOpacity onPress={pickImage} className="relative">
+                <View className={`${isTablet ? 'w-48 h-48' : 'w-32 h-32'} bg-surface-container-highest rounded-full items-center justify-center overflow-hidden border-2 border-dashed border-outline-variant`}>
+                  {image ? (
+                    <Image source={{ uri: image }} className="w-full h-full" />
+                  ) : (
+                    <User size={isTablet ? 100 : 60} color="#464752" />
+                  )}
+                </View>
+                <View className="absolute bottom-1 right-1 p-2 rounded-full border-4 border-surface"
+                      style={{ backgroundColor: primaryColor }}>
+                  <Camera size={isTablet ? 30 : 20} color="white" />
+                </View>
+              </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              onPress={handleComplete}
-              className="w-full py-4 rounded-full items-center flex-row justify-center mt-4"
-              disabled={!displayName.trim()}
-              style={{ 
-                backgroundColor: displayName.trim() ? '#4963ff' : '#222532',
-                shadowColor: displayName.trim() ? '#4963ff' : 'transparent',
-                shadowOffset: { width: 0, height: 8 },
-                shadowOpacity: 0.25,
-                shadowRadius: 20,
-                elevation: displayName.trim() ? 8 : 0,
-              }}
-            >
-              <Text className={`text-white font-bold ${isTablet ? 'text-2xl' : 'text-lg'} mr-2`}>Finish Setup</Text>
-              <Check size={isTablet ? 28 : 20} color="white" />
-            </TouchableOpacity>
+            <View className={`space-y-6 ${isTablet ? 'max-w-md self-center w-full' : ''}`}>
+              <View>
+                <Text className="text-outline text-[10px] font-bold uppercase tracking-widest ml-1 mb-2">Display Name</Text>
+                <TextInput
+                  className="w-full bg-surface-container-low rounded-2xl px-5 py-4 text-lg text-onSurface border border-outline-variant/10"
+                  placeholder="How do you want to be seen?"
+                  placeholderTextColor="#464752"
+                  value={displayName}
+                  onChangeText={setDisplayName}
+                />
+              </View>
+
+              <TouchableOpacity
+                onPress={handleComplete}
+                className="w-full py-4 rounded-full items-center flex-row justify-center mt-4"
+                disabled={!displayName.trim()}
+                style={{ 
+                  backgroundColor: displayName.trim() ? primaryColor : '#222532',
+                  shadowColor: displayName.trim() ? primaryColor : 'transparent',
+                  shadowOffset: { width: 0, height: 8 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 20,
+                  elevation: displayName.trim() ? 8 : 0,
+                }}
+              >
+                <Text className={`text-white font-bold ${isTablet ? 'text-2xl' : 'text-lg'} mr-2`}>Finish Setup</Text>
+                <Check size={isTablet ? 28 : 20} color="white" />
+              </TouchableOpacity>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

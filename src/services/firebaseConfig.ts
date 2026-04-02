@@ -30,8 +30,6 @@ try {
   auth = getAuth(app);
 }
 
-export { auth };
-export const db = getFirestore(app);
-export const storage = null;
-
+const db = getFirestore(app);
+export { auth, db };
 export default app;

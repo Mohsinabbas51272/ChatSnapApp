@@ -3,11 +3,16 @@ import { View, Text, TouchableOpacity, Image, useWindowDimensions } from 'react-
 import Animated, { FadeIn, SlideInRight, SlideInLeft, Layout } from 'react-native-reanimated';
 import { Camera, Check, CheckCheck, Play, Pause, Trash } from 'lucide-react-native';
 import { Audio } from 'expo-av';
+import { isLightColor, getContrastText } from '../../services/colors';
 
-const VoiceMessagePlayer = React.memo(({ uri, duration, isMe, primaryColor }: { uri: string; duration?: number; isMe: boolean; primaryColor: string }) => {
+const VoiceMessagePlayer = React.memo(({ uri, duration, isMe, primaryColor, isDarkMode }: { uri: string; duration?: number; isMe: boolean; primaryColor: string; isDarkMode: boolean }) => {
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [position, setPosition] = useState(0);
+
+  const surfaceHigh = isDarkMode ? '#000000' : '#E8EAF6';
+  const textColor = isMe ? getContrastText(primaryColor) : (isDarkMode ? '#FFFFFF' : '#1a1c1e');
+  const iconColor = isMe ? getContrastText(primaryColor) : (isLightColor(primaryColor) && !isDarkMode ? '#000000' : primaryColor);
 
   useEffect(() => {
     return () => {
@@ -53,25 +58,26 @@ const VoiceMessagePlayer = React.memo(({ uri, duration, isMe, primaryColor }: { 
     <View className="flex-row items-center py-1">
       <TouchableOpacity 
         onPress={playSound}
-        className={`w-10 h-10 rounded-full items-center justify-center ${isMe ? 'bg-white/20' : 'bg-primary/10'}`}
+        className="w-10 h-10 rounded-full items-center justify-center"
+        style={{ backgroundColor: isMe ? 'rgba(255,255,255,0.2)' : (isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)') }}
       >
         {isPlaying ? (
-          <Pause size={18} color={isMe ? 'white' : '#9ba8ff'} fill={isMe ? 'white' : '#9ba8ff'} />
+          <Pause size={18} color={iconColor} fill={iconColor} />
         ) : (
-          <Play size={18} color={isMe ? 'white' : '#9ba8ff'} fill={isMe ? 'white' : '#9ba8ff'} />
+          <Play size={18} color={iconColor} fill={iconColor} />
         )}
       </TouchableOpacity>
       <View className="ml-3 flex-1">
-        <View className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+        <View className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: isMe ? 'rgba(255,255,255,0.15)' : (isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)') }}>
            <View 
              className="h-full" 
              style={{ 
                width: `${(position / (duration ? duration * 1000 : 1)) * 100}%`,
-               backgroundColor: isMe ? 'white' : '#9ba8ff'
+               backgroundColor: isMe ? getContrastText(primaryColor) : (isLightColor(primaryColor) && !isDarkMode ? '#000000' : primaryColor)
              }} 
            />
         </View>
-        <Text className={`text-[10px] mt-1 font-bold ${isMe ? 'text-white/80' : 'text-onSurface-variant'}`}>
+        <Text className="text-[10px] mt-1 font-bold" style={{ color: textColor, opacity: 0.7 }}>
           {duration ? formatTime(duration) : 'Voice Note'}
         </Text>
       </View>
@@ -90,6 +96,7 @@ interface MessageItemProps {
   handleDeleteMessage: (msgId: string) => void;
   primaryColor: string;
   isGroup: boolean;
+  isDarkMode: boolean;
 }
 
 const MessageItem: React.FC<MessageItemProps> = React.memo(({ 
@@ -102,7 +109,8 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
   handleReaction, 
   handleDeleteMessage, 
   primaryColor, 
-  isGroup 
+  isGroup,
+  isDarkMode
 }) => {
   const { width } = useWindowDimensions();
   const isSnap = item.type === 'snap';
@@ -112,6 +120,11 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
   const partnerName = chatPartner?.displayName || chatPartner?.phoneNumber || item?.displayName || 'User';
   const partnerPhoto = chatPartner?.photoURL;
 
+  const surfaceLow = isDarkMode ? '#000000' : '#F0F2FA';
+  const surfaceHigh = isDarkMode ? '#000000' : '#E8EAF6';
+  const textColor = isMe ? getContrastText(primaryColor) : (isDarkMode ? '#FFFFFF' : '#1a1c1e');
+  const subTextColor = isMe ? (isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.7)') : (isDarkMode ? '#FFFFFF' : 'rgba(0,0,0,0.5)');
+
   return (
     <Animated.View 
       entering={isMe ? SlideInRight.springify().mass(0.8) : SlideInLeft.springify().mass(0.8)}
@@ -119,11 +132,19 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
       className={`mb-6 flex-row ${isMe ? 'justify-end' : 'justify-start'}`}
     >
       {!isMe && (
-        <View className="w-9 h-9 rounded-full bg-surface-container-highest mr-2 items-center justify-center overflow-hidden border border-outline-variant/20">
+        <View 
+          className="w-9 h-9 rounded-full mr-2 items-center justify-center overflow-hidden border"
+          style={{ 
+            backgroundColor: surfaceHigh,
+            borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'
+          }}
+        >
            {partnerPhoto ? (
               <Image source={{ uri: partnerPhoto }} className="w-full h-full" />
            ) : (
-               <Text className="text-xs font-bold text-onSurface">{(partnerName || '?').charAt(0).toUpperCase()}</Text>
+                <Text className="text-xs font-bold" style={{ color: isDarkMode ? '#FFFFFF' : (isLightColor(primaryColor) ? '#000000' : primaryColor) }}>
+                  {(partnerName || '?').charAt(0).toUpperCase()}
+                </Text>
            )}
         </View>
       )}
@@ -133,19 +154,21 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
           onLongPress={() => onLongPress(item.id!)}
           delayLongPress={300}
           style={isMe ? {
-            backgroundColor: '#4963ff',
-            shadowColor: '#4963ff',
+            backgroundColor: primaryColor,
+            shadowColor: primaryColor,
             shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.2,
+            shadowOpacity: 0.3,
             shadowRadius: 10,
             elevation: 4,
           } : {
-            backgroundColor: '#5d8aff',
-            shadowColor: '#5d8aff',
+            backgroundColor: surfaceLow,
+            shadowColor: 'rgba(0,0,0,0.1)',
             shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.2,
-            shadowRadius: 10,
-            elevation: 4,
+            shadowOpacity: 0.1,
+            shadowRadius: 6,
+            elevation: 2,
+            borderWidth: 1,
+            borderColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
           }}
           className={`px-5 py-3 rounded-2xl ${
             isMe ? 'rounded-tr-none' : 'rounded-tl-none'
@@ -162,10 +185,10 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
           )}
           {isSnap ? (
             <View className="flex-row items-center">
-              <View className={`w-8 h-8 rounded-full items-center justify-center ${isMe ? 'bg-white/20' : 'bg-white/20'}`}>
-                <Camera size={18} color={isMe ? 'white' : 'white'} />
+             <View className="w-8 h-8 rounded-full items-center justify-center" style={{ backgroundColor: isMe ? (isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.2)') : (isLightColor(primaryColor) && !isDarkMode ? '#000000' : primaryColor) }}>
+                <Camera size={18} color={isMe ? getContrastText(primaryColor) : 'white'} />
               </View>
-              <Text className={`ml-3 font-bold text-base ${isMe ? 'text-white' : 'text-white'}`}>
+              <Text className="ml-3 font-bold text-base" style={{ color: isMe ? 'white' : textColor }}>
                 {item.viewed ? 'Opened' : isMe ? 'Sent Snap' : 'Tap to View'}
               </Text>
             </View>
@@ -175,33 +198,34 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
                duration={item.duration} 
                isMe={isMe} 
                primaryColor={primaryColor} 
+               isDarkMode={isDarkMode}
              />
           ) : (
             <View>
                 {!isMe && isGroup && item.displayName && (
-                  <Text className="text-[10px] font-black text-white/60 mb-0.5 uppercase tracking-widest" style={{ letterSpacing: 0.5 }}>
+                  <Text className="text-[10px] font-black mb-0.5 uppercase tracking-widest" style={{ letterSpacing: 0.5, color: isDarkMode ? 'rgba(255,255,255,0.6)' : primaryColor }}>
                     {item.displayName}
                   </Text>
                 )}
-                <Text className={`text-base font-medium ${isMe ? 'text-white' : 'text-white'}`}>
+                <Text className="text-base font-medium" style={{ color: textColor }}>
                 {item.text}
                 </Text>
                 {isMe && (
                   <View className="flex-row items-center self-end mt-1 space-x-1">
                       {item.viewed ? (
-                        <View className="flex-row items-center bg-white/10 px-2 py-0.5 rounded-full">
-                          <CheckCheck size={12} color="#9ba8ff" strokeWidth={3} />
-                          <Text className="text-[9px] text-primary ml-1 font-black uppercase tracking-tighter">Read</Text>
+                        <View className="flex-row items-center bg-black/10 px-2 py-0.5 rounded-full" style={{ backgroundColor: isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)' }}>
+                          <CheckCheck size={12} color={getContrastText(primaryColor)} strokeWidth={3} />
+                          <Text className="text-[9px] ml-1 font-black uppercase tracking-tighter" style={{ color: getContrastText(primaryColor) }}>Read</Text>
                         </View>
                       ) : item.received ? (
-                        <View className="flex-row items-center bg-white/10 px-2 py-0.5 rounded-full">
-                          <CheckCheck size={12} color="rgba(255,255,255,0.8)" strokeWidth={2.5} />
-                          <Text className="text-[9px] text-white/80 ml-1 font-bold uppercase tracking-tighter">Delivered</Text>
+                        <View className="flex-row items-center bg-black/10 px-2 py-0.5 rounded-full" style={{ backgroundColor: isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)' }}>
+                          <CheckCheck size={12} color={isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.8)'} strokeWidth={2.5} />
+                          <Text className="text-[9px] ml-1 font-bold uppercase tracking-tighter" style={{ color: isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.8)' }}>Delivered</Text>
                         </View>
                       ) : (
-                        <View className="flex-row items-center bg-white/10 px-2 py-0.5 rounded-full">
-                          <Check size={12} color="rgba(255,255,255,0.6)" strokeWidth={2.5} />
-                          <Text className="text-[9px] text-white/60 ml-1 font-bold uppercase tracking-tighter">Sent</Text>
+                        <View className="flex-row items-center bg-black/10 px-2 py-0.5 rounded-full" style={{ backgroundColor: isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)' }}>
+                          <Check size={12} color={isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.6)'} strokeWidth={2.5} />
+                          <Text className="text-[9px] ml-1 font-bold uppercase tracking-tighter" style={{ color: isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.6)' }}>Sent</Text>
                         </View>
                       )}
                   </View>
@@ -210,7 +234,10 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
           )}
           
           {reactionMessageId === item.id && (
-            <View className="absolute -top-14 left-0 right-0 flex-row bg-surface-container-highest rounded-full px-3 py-2 shadow-2xl border border-outline-variant/15 z-50 justify-between items-center min-w-[240]">
+            <View 
+              className="absolute -top-14 left-0 right-0 flex-row rounded-full px-3 py-2 shadow-2xl border z-50 justify-between items-center min-w-[240]"
+              style={{ backgroundColor: surfaceHigh, borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }}
+            >
               <View className="flex-row flex-1 justify-around mr-2">
                 {['❤️', '😂', '🔥', '👍', '😮', '😢'].map((emoji) => (
                   <TouchableOpacity 
@@ -225,7 +252,7 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
               {isMe && (
                  <TouchableOpacity 
                   onPress={() => handleDeleteMessage(item.id!)}
-                  className="p-2 bg-error-container rounded-full ml-1"
+                  className="p-2 bg-red-500/10 rounded-full ml-1"
                 >
                   <Trash size={18} color="#ff4d4d" />
                 </TouchableOpacity>
@@ -243,10 +270,11 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
               <Animated.View 
                 key={emoji} 
                 entering={FadeIn.delay(100).springify()}
-                className="bg-surface-container-highest rounded-full px-1.5 py-0.5 shadow-sm border border-outline-variant/15 mr-1 mb-1 flex-row items-center"
+                className="rounded-full px-1.5 py-0.5 shadow-sm border mr-1 mb-1 flex-row items-center"
+                style={{ backgroundColor: surfaceHigh, borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }}
               >
                 <Text className="text-xs">{emoji}</Text>
-                {Array.isArray(uids) && uids.length > 1 && <Text className="text-[10px] ml-0.5 text-onSurface-variant font-bold">{uids.length}</Text>}
+                {Array.isArray(uids) && uids.length > 1 && <Text className="text-[10px] ml-0.5 font-bold" style={{ color: subTextColor }}>{uids.length}</Text>}
               </Animated.View>
             ))}
           </Animated.View>

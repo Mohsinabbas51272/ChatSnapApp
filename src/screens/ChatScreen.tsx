@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { View, FlatList, KeyboardAvoidingView, Platform, Alert, Keyboard, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
@@ -11,6 +11,7 @@ import { db } from '../services/firebaseConfig';
 import { RootState } from '../store';
 import { RootStackScreenProps } from '../types/navigation';
 import { useResponsive } from '../hooks/useResponsive';
+import { isLightColor, getContrastText } from '../services/colors';
 
 import {
   sendMessage,
@@ -37,14 +38,14 @@ import SmartReplies from '../components/SmartReplies';
 import ScreenBackground from '../components/ui/ScreenBackground';
 
 const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
-  const { isTablet } = useResponsive();
+  const { isTablet, getResponsiveContainerStyle } = useResponsive();
   const insets = useSafeAreaInsets();
   
   const { user: chatPartner, group } = route.params;
   const isGroup = !!group;
   
   const currentUser = useSelector((state: RootState) => state.auth);
-  const { primaryColor } = useSelector((state: RootState) => state.theme);
+  const { primaryColor, isDarkMode } = useSelector((state: RootState) => state.theme);
 
   // States
   const [messages, setMessages] = useState<Message[]>([]);
@@ -143,11 +144,11 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
   }, [chatPartner?.uid, group?.id, currentUser.uid, isGroup]);
 
   useEffect(() => {
-    const showSub = Keyboard.addListener('keyboardDidShow', () => {
+    const showSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => {
       setKeyboardVisible(true);
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     });
-    const hideSub = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
+    const hideSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardVisible(false));
     return () => { showSub.remove(); hideSub.remove(); };
   }, []);
 
@@ -177,6 +178,12 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
   }, [chatPartner?.uid, isGroup]);
 
   useEffect(() => {
+    navigation.setOptions({
+      title: chatPartner?.displayName || group?.name || 'Chat',
+    });
+  }, [chatPartner?.displayName, group?.name, navigation]);
+
+  useEffect(() => {
     if (!currentUser.uid || isGroup || !chatPartner?.uid) return;
     const unsub = subscribeToSecretConversations(currentUser.uid, (ids) => {
       setIsSecret(ids.includes(chatPartner?.uid));
@@ -185,81 +192,76 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
   }, [currentUser.uid, chatPartner?.uid, isGroup]);
 
   // --- Helpers ---
-  const formatLastSeen = (statusObj: any) => {
+  const formatLastSeen = useCallback((statusObj: any) => {
     if (statusObj.status === 'online') return 'Online';
     if (!statusObj.lastSeen) return 'Offline';
     const date = statusObj.lastSeen.toDate ? statusObj.lastSeen.toDate() : new Date(statusObj.lastSeen);
     const diff = new Date().getTime() - date.getTime();
-    if (diff < 60000) return 'Just now';
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 60000) return 'Abhi abhi'; // Just now in Urdu
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m pehle`; // m ago in Urdu
     if (diff < 86400000) return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-  };
+  }, []);
 
-  // --- Handlers ---
-  const handleTyping = (text: string) => {
-    if (!currentUser?.uid || !chatPartner?.uid || isGroup) return;
-    const conversationId = [currentUser.uid, chatPartner.uid].sort().join('_');
-    
-    if (text.trim() && typingTimeoutRef.current === null) {
-      setTypingStatus(conversationId, currentUser.uid, true).catch(() => {});
+  // Auto-scroll on new messages
+  useEffect(() => {
+    if (messages.length > 0) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 500);
     }
-    
+  }, [messages.length]);
+  const handleTyping = useCallback((text: string) => {
+    const uid = currentUser?.uid;
+    const partnerId = chatPartner?.uid;
+    if (!uid || !partnerId || isGroup) return;
+
+    const conversationId = [uid, partnerId].sort().join('_');
+
+    // Clear existing stop-typing timeout
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    
-    typingTimeoutRef.current = setTimeout(() => {
-      if (currentUser?.uid) {
-        setTypingStatus(conversationId, currentUser.uid, false).catch(() => {});
-      }
-      typingTimeoutRef.current = null;
-    }, 2000);
-  };
 
-  const handleSend = async (type: 'text' | 'snap' | 'voice' = 'text', mediaUriOrText?: string, duration?: number, filter: string = 'none') => {
-    console.log('[DEBUG] handleSend started. Type:', type, 'mediaUriOrText:', mediaUriOrText);
-    if (!currentUser.uid) { console.log('[DEBUG] Auth Error'); return Alert.alert("Auth Error", "Please login again."); }
-    if (!isGroup && !chatPartner?.uid) { console.log('[DEBUG] Recipient missing'); return Alert.alert("Error", "Recipient missing."); }
-    
-    // Use the explicit passed text or standard state text fallback
-    const resolvedText = type === 'text' ? (mediaUriOrText || inputText) : inputText;
-    
-    if (type === 'text' && !resolvedText.trim()) { console.log('[DEBUG] Empty text, returning'); return; }
+    // Immediate start typing if not already started
+    if (text.trim().length > 0) {
+      setTypingStatus(conversationId, uid, true).catch(() => {});
+      
+      typingTimeoutRef.current = setTimeout(() => {
+        setTypingStatus(conversationId, uid, false).catch(() => {});
+        typingTimeoutRef.current = null;
+      }, 3000); 
+    }
+  }, [currentUser?.uid, chatPartner?.uid, isGroup]);
 
-    if (isSending) { console.log('[DEBUG] Blocked by isSending lock'); return; }
-    console.log('[DEBUG] Setting isSending to true');
+  const handleSend = useCallback(async (type: 'text' | 'snap' | 'voice' = 'text', mediaUriOrText?: string, duration?: number, filter: string = 'none') => {
+    if (!currentUser.uid) { return Alert.alert("Masla Hua", "Dubara login karein."); }
+    if (!isGroup && !chatPartner?.uid) { return Alert.alert("Masla Hua", "Recipient nahi mila."); }
+    
+    // Use the provided text or fallback (though we should always provide it now)
+    const textToSend = (type === 'text' ? mediaUriOrText : mediaUriOrText) || '';
+    if (type === 'text' && !textToSend.trim()) { return; }
+    if (isSending) { return; }
+    
     setIsSending(true);
-
-    const textToSend = type === 'text' ? resolvedText : (mediaUriOrText || '');
-    if (type === 'text') setInputText(''); // Clear input instantly for smooth UI
+    if (type === 'text') setInputText(''); 
     if (type === 'snap') setShowCamera(false);
 
     try {
-      console.log('[DEBUG] Attempting to execute sendMessage, textToSend:', textToSend);
       if (isGroup) {
         await sendGroupMessage(group.id, textToSend, currentUser.displayName || 'Anonymous', type);
       } else {
         await sendMessage(currentUser.uid, chatPartner.uid, textToSend, type, type === 'snap' ? duration : undefined, type === 'voice' ? duration : undefined, type === 'snap' ? filter : undefined);
       }
-      console.log('[DEBUG] sendMessage completed successfully');
       
-      // Scroll to bottom manually if needed, usually snap updates list
       setTimeout(() => {
-        try {
-           console.log('[DEBUG] Attempting to scroll to end');
-           flatListRef.current?.scrollToEnd({ animated: true });
-        } catch (e) {
-           console.log('[DEBUG] scrollToEnd failed silently', e);
-        }
+        flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     } catch (error) {
-      console.error('[DEBUG] Messaging Error Caught in ChatScreen:', error);
-      Alert.alert("Failed", "Message failed to send.");
-      if (type === 'text') setInputText(textToSend); // Restore if error
+      Alert.alert("Nakam", "Paigham bhejne mein masla hua.");
+      if (type === 'text') setInputText(textToSend); 
     } finally {
-      console.log('[DEBUG] Releasing isSending lock');
       setIsSending(false);
     }
-  };
+  }, [currentUser.uid, chatPartner?.uid, group?.id, isGroup, isSending]); // Removed inputText dependency
 
   const filteredMessages = useMemo(() => 
     chatSearchQuery.trim() 
@@ -268,9 +270,14 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
     [messages, chatSearchQuery]
   );
 
+  const textColor = isDarkMode ? '#FFFFFF' : getContrastText(primaryColor);
+  const subTextColor = isDarkMode ? 'rgba(255,255,255,0.7)' : (isLightColor(primaryColor) ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.7)');
+  const surfaceLow = isDarkMode ? '#000000' : primaryColor;
+  const surfaceHigh = isDarkMode ? '#000000' : (isLightColor(primaryColor) ? '#E8EAF6' : 'rgba(255,255,255,0.1)');
+
   return (
     <ScreenBackground>
-      <StatusBar barStyle="light-content" backgroundColor={primaryColor} />
+      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
       
       <ChatHeader 
         navigation={navigation}
@@ -292,10 +299,15 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
         }}
         blockedByMe={blockedByMe}
         handleBlockToggle={async () => blockedByMe ? await unblockUser(chatPartner.uid) : await blockUser(chatPartner.uid)}
+        isDarkMode={isDarkMode}
       />
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 25} style={{ flex: 1 }}>
-        <View className="flex-1" style={isTablet ? { alignSelf: 'center', width: '100%', maxWidth: 768 } : undefined}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0} 
+        style={{ flex: 1 }}
+      >
+        <View style={getResponsiveContainerStyle()} className="flex-1">
           
           <FlatList
             ref={flatListRef}
@@ -322,10 +334,11 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
                 handleDeleteMessage={(id) => { deleteMessage(id); setReactionMessageId(null); }}
                 primaryColor={primaryColor}
                 isGroup={isGroup}
+                isDarkMode={isDarkMode}
               />
             )}
             className="flex-1 px-4 pt-6"
-            contentContainerStyle={{ paddingBottom: 20 }}
+            contentContainerStyle={{ paddingBottom: 40 }}
             showsVerticalScrollIndicator={false}
             onContentSizeChange={() => {
               if (filteredMessages.length > prevMessageCountRef.current) {
@@ -333,23 +346,31 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
               }
               prevMessageCountRef.current = filteredMessages.length;
             }}
-            initialNumToRender={15}
-            maxToRenderPerBatch={10}
-            windowSize={10}
-            removeClippedSubviews={Platform.OS === 'android'}
+            initialNumToRender={10}
+            maxToRenderPerBatch={5}
+            windowSize={5}
+            removeClippedSubviews={true}
+            updateCellsBatchingPeriod={50}
+            legacyImplementation={false}
           />
 
           {!blockedByMe && !blockedByPartner && messages.length > 0 && messages[messages.length - 1].senderId !== currentUser.uid && !inputText.trim() && (
             <SmartReplies 
               lastMessage={messages[messages.length - 1].text}
-              onSelect={(reply) => setInputText(reply)}
+              onSelect={(reply) => {
+                handleSend('text', reply);
+              }}
               primaryColor={primaryColor}
+              isDarkMode={isDarkMode}
             />
           )}
 
           {typingUsers.length > 0 && (
             <Animated.View entering={SlideInDown.duration(300)} exiting={FadeOut.duration(200)} className="px-4 py-2">
-              <View className="flex-row items-center bg-surface-container-high/50 self-start px-4 py-2 rounded-2xl border border-outline-variant/10">
+              <View 
+                className="flex-row items-center self-start px-4 py-2 rounded-2xl border"
+                style={{ backgroundColor: `${surfaceHigh}80`, borderColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}
+              >
                 <View className="flex-row items-center space-x-1 mr-2">
                    <View className="w-1.5 h-1.5 bg-primary rounded-full" />
                    <View className="w-1.5 h-1.5 bg-primary rounded-full ml-1 opacity-70" />
@@ -362,10 +383,18 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
             </Animated.View>
           )}
 
-          <View className={`bg-surface-container-low/60 ${isTablet ? 'rounded-t-3xl border-x border-t border-outline-variant/10' : ''}`} style={{ paddingBottom: keyboardVisible ? 20 : insets.bottom + 5 }}>
+          <View 
+            className={`${isTablet ? 'rounded-t-3xl border-x border-t' : ''}`} 
+            style={{ 
+              backgroundColor: isDarkMode ? `${surfaceLow}CC` : surfaceLow,
+              borderColor: isDarkMode ? 'rgba(255,255,255,0.05)' : (isLightColor(primaryColor) ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)'),
+              paddingBottom: keyboardVisible ? (Platform.OS === 'ios' ? 8 : 4) : (insets.bottom || 8),
+              paddingTop: 4
+            }}
+          >
             {blockedByMe || blockedByPartner ? (
               <View className="h-20 items-center justify-center px-10">
-                <View className="bg-surface-container-highest px-6 py-3 rounded-2xl border border-outline-variant/10">
+                <View className="px-6 py-3 rounded-2xl border" style={{ backgroundColor: surfaceHigh, borderColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                   <Text className="text-secondary font-bold text-center">
                     {blockedByMe ? 'You have blocked this user' : 'This conversation is restricted'}
                   </Text>
@@ -374,11 +403,12 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
             ) : (
               <ChatInput 
                 primaryColor={primaryColor}
-                inputText={inputText}
-                setInputText={setInputText}
-                onTyping={handleTyping}
+                isDarkMode={isDarkMode}
                 onSend={handleSend as any}
                 onOpenCamera={() => setShowCamera(true)}
+                onTyping={handleTyping}
+                inputText={inputText}
+                setInputText={setInputText}
                 isSending={isSending}
               />
             )}
@@ -386,7 +416,7 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
         </View>
       </KeyboardAvoidingView>
 
-      <SnapCameraScreen isVisible={showCamera} onClose={() => setShowCamera(false)} onSend={(uri, timer, filter) => handleSend('snap', uri, timer, filter)} />
+      <SnapCameraScreen isVisible={showCamera} onClose={() => setShowCamera(false)} onSend={(uri: string, timer: number, filter: string) => handleSend('snap', uri, timer, filter)} />
 
       {activeSnap && (
         <SnapViewer 
