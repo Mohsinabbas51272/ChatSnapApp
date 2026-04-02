@@ -5,11 +5,13 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import Header from '../components/ui/Header';
 import ScreenBackground from '../components/ui/ScreenBackground';
+import { useNavigation } from '@react-navigation/native';
 import { QrCode, RotateCcw, Keyboard, Camera as CameraIcon } from 'lucide-react-native';
 import { sendFriendRequest } from '../services/social';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
 const QRScannerScreen = () => {
+  const navigation = useNavigation();
   const [manualCode, setManualCode] = useState('');
   const [isManualMode, setIsManualMode] = useState(false);
   const [scanned, setScanned] = useState(false);
@@ -91,7 +93,7 @@ const QRScannerScreen = () => {
     // Camera permissions are not granted yet
     return (
       <ScreenBackground>
-        <Header title="Add Friend" showBack />
+        <Header title="Add Friend" showBack navigation={navigation} />
         <View className="flex-1 items-center justify-center px-8">
           <CameraIcon size={64} color="#737580" className="mb-4" />
           <Text className="text-onSurface text-center text-lg font-bold mb-4">
@@ -115,7 +117,7 @@ const QRScannerScreen = () => {
   return (
     <ScreenBackground>
       <StatusBar style="light" backgroundColor={primaryColor} />
-      <Header title="Add Friend" showBack />
+      <Header title="Add Friend" showBack navigation={navigation} />
 
       <View className="flex-1">
         {!isManualMode ? (

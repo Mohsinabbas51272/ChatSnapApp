@@ -1,24 +1,24 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: "class",
   // NOTE: Update this to include the paths to all of your component files.
   content: ["./App.{js,jsx,ts,tsx}", "./src/**/*.{js,jsx,ts,tsx}"],
   presets: [require("nativewind/preset")],
   theme: {
     extend: {
       colors: {
-        // ChatSnap "Bright & Airy" Design System (Light Theme)
         surface: {
-          DEFAULT: "#FFFFFF",
-          dim: "#F8F9FF",
-          bright: "#F0F3FF",
+          DEFAULT: "var(--surface)",
+          dim: "var(--surface-dim)",
+          bright: "var(--surface-bright)",
           container: {
-            DEFAULT: "#F1F4FF",
-            low: "#F8F9FE",
-            high: "#E9EDFF",
-            highest: "#DFE5FF",
-            lowest: "#FFFFFF",
+            DEFAULT: "var(--surface-container)",
+            low: "var(--surface-container-low)",
+            high: "var(--surface-container-high)",
+            highest: "var(--surface-container-highest)",
+            lowest: "var(--surface-container-lowest)",
           },
-          variant: "#F1F4FF",
+          variant: "var(--surface-container)",
           tint: "#4963ff",
         },
         primary: {
@@ -48,13 +48,13 @@ module.exports = {
           container: "#FFECEC",
         },
         onSurface: {
-          DEFAULT: "#1A1C1E",
-          variant: "#64748B",
+          DEFAULT: "var(--on-surface)",
+          variant: "var(--on-surface-variant)",
         },
-        onBackground: "#1A1C1E",
+        onBackground: "var(--on-surface)",
         outline: {
-          DEFAULT: "#CBD5E1",
-          variant: "#E2E8F0",
+          DEFAULT: "var(--outline)",
+          variant: "var(--outline-variant)",
         },
         // Legacy snapchat colors (for backward compat)
         snapchat: {

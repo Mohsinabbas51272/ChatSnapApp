@@ -16,6 +16,9 @@ const SnapCameraScreen = ({ isVisible, onClose, onSend }: any) => {
   const cameraRef = useRef<any>(null);
 
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [video, setVideo] = useState<string | null>(null);
+  const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null);
 
   // Stable Camera component must be declared BEFORE any early returns
   // to follow React's rules of hooks
@@ -34,8 +37,9 @@ const SnapCameraScreen = ({ isVisible, onClose, onSend }: any) => {
   useEffect(() => {
     const onBackPress = () => {
       if (isVisible) {
-        if (image) {
+        if (image || video) {
           setImage(null);
+          setVideo(null);
         } else {
           onClose();
         }
@@ -67,7 +71,7 @@ const SnapCameraScreen = ({ isVisible, onClose, onSend }: any) => {
   }
 
   const takePicture = async () => {
-    if (cameraRef.current && !isCapturing) {
+    if (cameraRef.current && !isCapturing && !isRecording) {
       setIsCapturing(true);
       try {
         const photo = await cameraRef.current.takePictureAsync({
@@ -76,9 +80,47 @@ const SnapCameraScreen = ({ isVisible, onClose, onSend }: any) => {
         setImage(photo.uri);
       } catch (err: any) {
         console.error('Error taking picture:', err);
-        alert('Failed to take picture: ' + err.message);
       } finally {
         setIsCapturing(false);
+      }
+    }
+  };
+
+  const startRecording = async () => {
+    if (cameraRef.current && !isRecording) {
+      setIsRecording(true);
+      setRecordingStartTime(Date.now());
+      try {
+        const videoData = await cameraRef.current.recordAsync({
+          maxDuration: 10,
+          quality: '720p',
+        });
+        setVideo(videoData.uri);
+      } catch (err: any) {
+        console.error('Error recording video:', err);
+      } finally {
+        setIsRecording(false);
+        setRecordingStartTime(null);
+      }
+    }
+  };
+
+  const stopRecording = async () => {
+    if (cameraRef.current && isRecording) {
+      // Ensure a minimum recording duration of 500ms to prevent the 
+      // "Recording was stopped before any data could be produced" error.
+      const now = Date.now();
+      const duration = recordingStartTime ? now - recordingStartTime : 0;
+      
+      if (duration < 500) {
+        // Wait a bit longer if the user released too quickly
+        await new Promise(resolve => setTimeout(resolve, 500 - duration));
+      }
+      
+      try {
+        await cameraRef.current.stopRecording();
+      } catch (e: any) {
+        console.error('Error stopping recording:', e);
       }
     }
   };
@@ -96,9 +138,10 @@ const SnapCameraScreen = ({ isVisible, onClose, onSend }: any) => {
   };
 
   const handleSend = () => {
-    if (image) {
-      onSend(image, timer, activeFilter);
+    if (image || video) {
+      onSend(image || video, timer, activeFilter);
       setImage(null);
+      setVideo(null);
       onClose();
     }
   };
@@ -183,14 +226,16 @@ const SnapCameraScreen = ({ isVisible, onClose, onSend }: any) => {
                   
                   <TouchableOpacity 
                     onPress={takePicture} 
+                    onLongPress={startRecording}
+                    onPressOut={stopRecording}
                     disabled={isCapturing}
-                    className={`w-20 h-20 rounded-full items-center justify-center p-1 ${isCapturing ? 'opacity-50' : ''}`}
+                    className={`w-20 h-20 rounded-full items-center justify-center p-1 ${isCapturing || isRecording ? 'opacity-80' : ''}`}
                     style={{ 
                       borderWidth: 4,
-                      borderColor: 'white',
+                      borderColor: isRecording ? '#ff6e85' : 'white',
                     }}
                   >
-                    <View className="w-full h-full bg-white rounded-full" />
+                    <View className={`w-full h-full rounded-full ${isRecording ? 'bg-error scale-90' : 'bg-white'}`} />
                   </TouchableOpacity>
 
                   <View className="flex-col gap-2 rounded-full items-center p-1.5"
@@ -212,7 +257,13 @@ const SnapCameraScreen = ({ isVisible, onClose, onSend }: any) => {
           </View>
         ) : (
           <View className="flex-1 bg-black">
-            <Image source={{ uri: image }} className="flex-1" resizeMode="contain" />
+            {image ? (
+              <Image source={{ uri: image }} className="flex-1" resizeMode="contain" />
+            ) : (
+                <View className="flex-1 items-center justify-center">
+                    <Text className="text-white font-bold">Video Snap Ready</Text>
+                </View>
+            )}
             
             {/* Captured Filter Overlays */}
             <View className="absolute inset-0" pointerEvents="none">

@@ -2,6 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    --surface: #ffffff;
+    --surface-dim: #f8f9ff;
+    --surface-bright: #f0f3ff;
+    --surface-container: #f1f4ff;
+    --surface-container-low: #f8f9fe;
+    --surface-container-high: #e9edff;
+    --surface-container-highest: #dfe5ff;
+    --surface-container-lowest: #ffffff;
+    --on-surface: #1a1c1e;
+    --on-surface-variant: #64748b;
+    --outline: #cbd5e1;
+    --outline-variant: #e2e8f0;
+  }
+
+  .dark {
+    --surface: #101419;
+    --surface-dim: #14181e;
+    --surface-bright: #1e242d;
+    --surface-container: #181c24;
+    --surface-container-low: #14181e;
+    --surface-container-high: #222832;
+    --surface-container-highest: #2c3440;
+    --surface-container-lowest: #0c1014;
+    --on-surface: #e2e8f0;
+    --on-surface-variant: #94a3b8;
+    --outline: #334155;
+    --outline-variant: #1e293b;
+  }
+}
+
 @layer utilities {
   .glass-light {
     background-color: rgba(255, 255, 255, 0.8);

@@ -17,7 +17,7 @@ import {
   increment
 } from 'firebase/firestore';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
-import { db } from './firebaseConfig';
+import { db, auth } from './firebaseConfig';
 import { sendLocalNotification } from './notifications';
 export interface Message {
   id?: string;
@@ -44,6 +44,9 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 const convertToBase64 = async (uri: string, type: 'snap' | 'image' | 'voice'): Promise<string> => {
   try {
+    // If already base64, don't re-process
+    if (uri.startsWith('data:')) return uri;
+
     if (type === 'snap' || type === 'image') {
       // Aggressive compression and resizing for database-only storage
       const result = await manipulateAsync(
@@ -75,18 +78,22 @@ export const sendMessage = async (
   filter?: string,
   storyReply?: Message['storyReply']
 ) => {
+  console.log('[DEBUG] sendMessage entered with senderId:', senderId, 'receiverId:', receiverId, 'type:', type);
   try {
     if (!senderId || !receiverId) {
-      console.error('Invalid sender or receiver ID');
+      console.error('[DEBUG] Invalid sender or receiver ID');
       return;
     }
 
     const conversationId = [senderId, receiverId].sort().join('_');
+    console.log('[DEBUG] conversationId created:', conversationId);
     const messagesRef = collection(db, 'messages');
     
     let processedText = text;
     if (type === 'image' || type === 'snap' || type === 'voice') {
+      console.log('[DEBUG] Attempting to convertToBase64 for type:', type);
       processedText = await convertToBase64(text, type);
+      console.log('[DEBUG] Base64 conversion successful');
     }
 
     const messageData: any = {
@@ -105,19 +112,28 @@ export const sendMessage = async (
     if (filter) messageData.filter = filter;
     if (storyReply) messageData.storyReply = storyReply;
 
+    console.log('[DEBUG] Payload prepared for addDoc, attempting to insert');
     await addDoc(messagesRef, messageData);
+    console.log('[DEBUG] addDoc successful');
 
-    // Increment snap counter if message is a snap or image
+    // Increment snap counter if message is a snap or image (side-effect)
     if (type === 'snap' || type === 'image') {
-      const userRef = doc(db, 'users', senderId);
-      await updateDoc(userRef, {
-        snapCount: increment(1)
-      });
+      console.log('[DEBUG] Incrementing snap count for sender');
+      try {
+        const userRef = doc(db, 'users', senderId);
+        await updateDoc(userRef, {
+          snapCount: increment(1)
+        });
+      } catch (counterError) {
+        console.warn('[DEBUG] Failed to increment snap count:', counterError);
+        // Don't fail the message just because the counter failed
+      }
     }
 
+    console.log('[DEBUG] sendMessage returning true');
     return true;
   } catch (error) {
-    console.error('Error sending message:', error);
+    console.error('[DEBUG] Error sending message caught in messaging.ts:', error);
   }
 };
 
@@ -148,14 +164,17 @@ export const subscribeToMessages = (
   callback: (messages: Message[]) => void,
   onNewMessage?: (message: Message) => void
 ) => {
+  if (!userId1 || !userId2 || !auth.currentUser) return () => {};
+
   const conversationId = [userId1, userId2].sort().join('_');
   const messagesRef = collection(db, 'messages');
   
-  // Removed orderBy to avoid the need for a composite index
+  // Sort newest first to ensure we get the LATEST messages in the limit
   const q = query(
     messagesRef,
     where('conversationId', '==', conversationId),
-    limit(100)
+    orderBy('timestamp', 'desc'),
+    limit(50)
   );
 
   return onSnapshot(q, (snapshot) => {
@@ -177,12 +196,11 @@ export const subscribeToMessages = (
       const lastMessage = messages[messages.length - 1];
       if (lastMessage.senderId !== userId1 && lastMessage.senderId !== userId2) {
         // This shouldn't happen, but just in case
-        return;
-      }
-      
-      const otherUserId = lastMessage.senderId === userId1 ? userId2 : userId1;
-      if (lastMessage.senderId === otherUserId) {
-        onNewMessage(lastMessage);
+      } else {
+        const otherUserId = lastMessage.senderId === userId1 ? userId2 : userId1;
+        if (lastMessage.senderId === otherUserId) {
+          onNewMessage(lastMessage);
+        }
       }
     }
 
@@ -196,6 +214,8 @@ export const subscribeToConversations = (
   userId: string,
   callback: (conversations: any[]) => void
 ) => {
+  if (!userId || !auth.currentUser) return () => {};
+
   const messagesRef = collection(db, 'messages');
   
   // Removed orderBy to avoid the need for a composite index
@@ -338,6 +358,8 @@ export const toggleSecretChat = async (userId: string, partnerId: string, isSecr
 };
 
 export const subscribeToSecretConversations = (userId: string, callback: (secretPartnerIds: string[]) => void) => {
+  if (!userId || !auth.currentUser) return () => {};
+
   const secretRef = collection(db, 'secretConversations');
   const q = query(secretRef, where('userId', '==', userId));
   

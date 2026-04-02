@@ -4,16 +4,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../store/authSlice';
 import { RootState } from '../store';
-import { User, LogOut, ChevronRight, Bell, Shield, HelpCircle, UserRound, Palette, Sparkles, Smile, Coffee, Heart, Zap, Moon, Edit3, Camera as CameraIcon } from 'lucide-react-native';
+import { User, LogOut, ChevronRight, Bell, Shield, HelpCircle, UserRound, Palette, Sparkles, Smile, Coffee, Heart, Zap, Moon, Edit3, Camera as CameraIcon, Sun } from 'lucide-react-native';
 import Header from '../components/ui/Header';
 import { useNavigation } from '@react-navigation/native';
-import { setTheme, setMood } from '../store/themeSlice';
+import { setTheme, setMood, toggleDarkMode } from '../store/themeSlice';
 import ScreenBackground from '../components/ui/ScreenBackground';
 import { subscribeToFriends } from '../services/social';
 import { QrCode, X, Copy } from 'lucide-react-native';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../services/firebaseConfig';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 
 const themeColors = [
   { name: 'Electric', color: '#9ba8ff' },
@@ -52,13 +52,14 @@ const SettingItem = memo(({ icon: Icon, title, value, color = '#f0f0fd', onPress
 
 const SettingsScreen = () => {
     const user = useSelector((state: RootState) => state.auth);
-    const { primaryColor, themeName, mood } = useSelector((state: RootState) => state.theme);
+    const { primaryColor, themeName, mood, isDarkMode } = useSelector((state: RootState) => state.theme);
     const dispatch = useDispatch();
     const navigation = useNavigation<any>();
     const [friendCount, setFriendCount] = React.useState(0);
     const [snapCount, setSnapCount] = React.useState(0);
     const [showQR, setShowQR] = React.useState(false);
     const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
+    const [ghostMode, setGhostMode] = React.useState(false);
 
     React.useEffect(() => {
         if (!user.uid) return;
@@ -69,7 +70,9 @@ const SettingsScreen = () => {
 
         const unsubUser = onSnapshot(doc(db, 'users', user.uid), (snapshot) => {
             if (snapshot.exists()) {
-                setSnapCount(snapshot.data().snapCount || 0);
+                const data = snapshot.data();
+                setSnapCount(data.snapCount || 0);
+                setGhostMode(data.ghostMode || false);
             }
         });
 
@@ -98,6 +101,13 @@ const SettingsScreen = () => {
         dispatch(setMood(moodName));
     }, [dispatch]);
 
+    const toggleGhostMode = async (value: boolean) => {
+        setGhostMode(value);
+        if (user.uid) {
+            await updateDoc(doc(db, 'users', user.uid), { ghostMode: value });
+        }
+    };
+
     return (
         <ScreenBackground showBubbles={false}>
             <StatusBar barStyle="light-content" backgroundColor={primaryColor} />
@@ -108,7 +118,7 @@ const SettingsScreen = () => {
                         {/* Gradient glow behind avatar */}
                         <View className="absolute -inset-1 rounded-full opacity-25" 
                               style={{ backgroundColor: primaryColor }} />
-                        <View className="w-32 h-32 rounded-full bg-surface-container-highest items-center justify-center overflow-hidden border border-outline-variant/20 p-1">
+                        <View className="w-32 h-32 rounded-full bg-surface-container-highest items-center justify-center overflow-hidden p-1">
                             {user.photoURL ? (
                                 <Image source={{ uri: user.photoURL }} className="w-full h-full rounded-full" />
                             ) : (
@@ -129,15 +139,15 @@ const SettingsScreen = () => {
 
                 {/* Stats Grid */}
                 <View className="flex-row mb-8">
-                    <View className="flex-1 bg-surface-container-low rounded-xl p-4 items-center border border-outline-variant/10 mr-2 shadow-sm">
+                    <View className="flex-1 bg-surface-container-low rounded-xl p-4 items-center mr-2 shadow-sm">
                         <Text className="text-xs uppercase tracking-widest text-onSurface-variant mb-1">Friends</Text>
                         <Text className="text-xl font-bold text-primary">{friendCount}</Text>
                     </View>
-                    <View className="flex-1 bg-surface-container-low rounded-xl p-4 items-center border border-outline-variant/10 mx-1">
+                    <View className="flex-1 bg-surface-container-low rounded-xl p-4 items-center mx-1">
                         <Text className="text-xs uppercase tracking-widest text-onSurface-variant mb-1">Snaps</Text>
                         <Text className="text-xl font-bold text-tertiary">{snapCount || 0}</Text>
                     </View>
-                    <View className="flex-1 bg-surface-container-low rounded-xl p-4 items-center border border-outline-variant/10 ml-2">
+                    <View className="flex-1 bg-surface-container-low rounded-xl p-4 items-center ml-2">
                         <Text className="text-xs uppercase tracking-widest text-onSurface-variant mb-1">Privacy</Text>
                         <Text className="text-xl font-bold text-secondary">98%</Text>
                     </View>
@@ -147,7 +157,7 @@ const SettingsScreen = () => {
                 <View className="flex-row mb-8">
                     <TouchableOpacity 
                         onPress={() => navigation.navigate('ProfileSetup')}
-                        className="flex-1 py-4 px-6 rounded-2xl bg-surface-container-low border border-outline-variant/10 items-center justify-center flex-row mr-2Shadow-sm"
+                        className="flex-1 py-4 px-6 rounded-2xl bg-surface-container-low items-center justify-center flex-row mr-2 shadow-sm"
                         style={{ borderLeftWidth: 4, borderLeftColor: primaryColor }}
                     >
                         <Edit3 size={18} color={primaryColor} />
@@ -155,7 +165,7 @@ const SettingsScreen = () => {
                     </TouchableOpacity>
                     <TouchableOpacity 
                         onPress={() => setShowQR(true)}
-                        className="flex-1 py-4 px-6 rounded-2xl bg-surface-container-low border border-outline-variant/10 items-center justify-center flex-row shadow-sm"
+                        className="flex-1 py-4 px-6 rounded-2xl bg-surface-container-low items-center justify-center flex-row shadow-sm"
                         style={{ borderRightWidth: 4, borderRightColor: '#9ba8ff' }}
                     >
                         <QrCode size={18} color="#9ba8ff" />
@@ -165,7 +175,7 @@ const SettingsScreen = () => {
 
                 {/* Bento Cards */}
                 <View className="flex-row mb-6">
-                    <View className="flex-1 bg-surface-container rounded-xl p-6 h-40 justify-between border border-outline-variant/15 mr-2">
+                    <View className="flex-1 bg-surface-container rounded-xl p-6 h-40 justify-between mr-2">
                         <Text className="text-primary-fixed text-sm uppercase tracking-widest">Privacy Score</Text>
                         <View>
                             <Text className="text-4xl font-black tracking-tighter text-onSurface">98%</Text>
@@ -188,8 +198,27 @@ const SettingsScreen = () => {
                     </View>
                 </View>
 
+                {/* Dark Mode Toggle */}
+                <View className="bg-surface-container-low rounded-xl p-5 mb-2 flex-row items-center justify-between">
+                    <View className="flex-row items-center">
+                         <View className="w-12 h-12 rounded-full bg-surface-container-highest items-center justify-center">
+                            {isDarkMode ? <Moon size={20} color={primaryColor} /> : <Sun size={20} color="#ffb020" />}
+                         </View>
+                         <View className="ml-4">
+                            <Text className="text-base font-semibold text-onSurface">Dark Mode</Text>
+                            <Text className="text-xs text-onSurface-variant">{isDarkMode ? 'On' : 'Off'}</Text>
+                         </View>
+                    </View>
+                    <Switch
+                        value={isDarkMode}
+                        onValueChange={() => { dispatch(toggleDarkMode()); }}
+                        trackColor={{ false: '#767577', true: primaryColor }}
+                        thumbColor={'#fff'}
+                    />
+                </View>
+
                 {/* Theme Color */}
-                <View className="bg-surface-container-low rounded-xl p-5 mb-2 border border-outline-variant/10">
+                <View className="bg-surface-container-low rounded-xl p-5 mb-2">
                     <View className="flex-row items-center mb-4">
                          <View className="w-12 h-12 rounded-full bg-surface-container-highest items-center justify-center">
                             <Palette size={20} color="#9ba8ff" />
@@ -218,7 +247,7 @@ const SettingsScreen = () => {
                 </View>
 
                 {/* Mood */}
-                <View className="bg-surface-container-low rounded-xl p-5 mb-2 border border-outline-variant/10">
+                <View className="bg-surface-container-low rounded-xl p-5 mb-2">
                     <View className="flex-row items-center mb-4">
                          <View className="w-12 h-12 rounded-full bg-surface-container-highest items-center justify-center">
                             <Sparkles size={20} color="#e966ff" />
@@ -270,6 +299,15 @@ const SettingsScreen = () => {
                     switchValue={notificationsEnabled}
                     onSwitchChange={setNotificationsEnabled}
                 />
+                <SettingItem 
+                    icon={Shield} 
+                    title="Ghost Mode" 
+                    value={ghostMode ? "Stealth browsing active" : "Online status visible"} 
+                    color="#e966ff" 
+                    hasSwitch={true}
+                    switchValue={ghostMode}
+                    onSwitchChange={toggleGhostMode}
+                />
                 <SettingItem
                     icon={QrCode}
                     title="My QR Code"
@@ -319,7 +357,7 @@ const SettingsScreen = () => {
                         activeOpacity={1}
                         onPress={() => setShowQR(false)}
                     >
-                        <View className="bg-surface rounded-[40px] p-10 items-center w-[85%] border-2 border-primary/20"
+                        <View className="bg-surface rounded-[40px] p-10 items-center w-[85%]"
                               onStartShouldSetResponder={() => true}
                               onResponderRelease={(e) => e.stopPropagation()}
                         >

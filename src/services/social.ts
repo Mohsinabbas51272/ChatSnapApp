@@ -83,6 +83,9 @@ export const subscribeToFriendRequests = (userId: string, callback: (requests: F
   const requestsRef = collection(db, 'friendRequests');
   const q = query(requestsRef, where('toId', '==', userId), where('status', '==', 'pending'));
 
+  // Safety check: Don't start subscription if no user
+  if (!userId || !auth.currentUser) return () => {};
+
   return onSnapshot(q, (snapshot) => {
     const requests: FriendRequest[] = [];
     snapshot.forEach((doc) => {
@@ -90,7 +93,9 @@ export const subscribeToFriendRequests = (userId: string, callback: (requests: F
     });
     callback(requests);
   }, (error) => {
-    console.warn('Snapshot error in subscribeToFriendRequests:', error.message);
+    // Silence common permission errors during auth transitions
+    if (error.code === 'permission-denied') return;
+    console.warn('FriendRequests sync error:', error.message);
   });
 };
 
@@ -98,6 +103,9 @@ export const subscribeToFriendRequests = (userId: string, callback: (requests: F
 export const subscribeToFriends = (userId: string, callback: (friendIds: string[]) => void) => {
   const friendsRef = collection(db, 'friends');
   const q = query(friendsRef, where('uids', 'array-contains', userId));
+
+  // Safety check: Don't start subscription if no user
+  if (!userId || !auth.currentUser) return () => {};
 
   return onSnapshot(q, (snapshot) => {
     const friendIds: string[] = [];
@@ -108,12 +116,15 @@ export const subscribeToFriends = (userId: string, callback: (friendIds: string[
     });
     callback(friendIds);
   }, (error) => {
-    console.warn('Snapshot error in subscribeToFriends:', error.message);
+    if (error.code === 'permission-denied') return;
+    console.warn('Friends sync error:', error.message);
   });
 };
 
 // Subscribe to outgoing friend requests
 export const subscribeToSentRequests = (userId: string, callback: (requestedIds: string[]) => void) => {
+  if (!userId || !auth.currentUser) return () => {};
+
   const requestsRef = collection(db, 'friendRequests');
   const q = query(requestsRef, where('fromId', '==', userId), where('status', '==', 'pending'));
 
@@ -124,6 +135,63 @@ export const subscribeToSentRequests = (userId: string, callback: (requestedIds:
     });
     callback(requestedIds);
   }, (error) => {
+    if (error.code === 'permission-denied') return;
     console.warn('Snapshot error in subscribeToSentRequests:', error.message);
+  });
+};
+// Blocking System
+export const blockUser = async (toBlockId: string) => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) return;
+
+  const blockRef = doc(db, 'blocks', `${currentUser.uid}_${toBlockId}`);
+  await setDoc(blockRef, {
+    blockerId: currentUser.uid,
+    blockedId: toBlockId,
+    timestamp: serverTimestamp(),
+  });
+};
+
+export const unblockUser = async (toUnblockId: string) => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) return;
+
+  const blockRef = doc(db, 'blocks', `${currentUser.uid}_${toUnblockId}`);
+  await deleteDoc(blockRef);
+};
+
+export const subscribeToBlockedUsers = (userId: string, callback: (blockedIds: string[]) => void) => {
+  if (!userId || !auth.currentUser) return () => {};
+
+  const blocksRef = collection(db, 'blocks');
+  const q = query(blocksRef, where('blockerId', '==', userId));
+
+  return onSnapshot(q, (snapshot) => {
+    const blockedIds: string[] = [];
+    snapshot.forEach((doc) => {
+      blockedIds.push(doc.data().blockedId);
+    });
+    callback(blockedIds);
+  }, (error) => {
+    if (error.code === 'permission-denied') return;
+    console.warn('Blocked users sync error:', error.message);
+  });
+};
+
+export const subscribeToWhoBlockedMe = (userId: string, callback: (blockerIds: string[]) => void) => {
+  if (!userId || !auth.currentUser) return () => {};
+
+  const blocksRef = collection(db, 'blocks');
+  const q = query(blocksRef, where('blockedId', '==', userId));
+
+  return onSnapshot(q, (snapshot) => {
+    const blockerIds: string[] = [];
+    snapshot.forEach((doc) => {
+      blockerIds.push(doc.data().blockerId);
+    });
+    callback(blockerIds);
+  }, (error) => {
+    if (error.code === 'permission-denied') return;
+    console.warn('Who blocked me sync error:', error.message);
   });
 };

@@ -1,15 +1,17 @@
 import "./global.css";
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Provider, useSelector, useDispatch } from 'react-redux';
+import { Provider, useSelector, useDispatch, useStore } from 'react-redux';
 import { store, RootState } from './src/store';
 import { setUser, logout } from './src/store/authSlice';
 import { restoreTheme } from './src/store/themeSlice';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppState, LogBox } from 'react-native';
+import { AppState, LogBox, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useColorScheme } from 'nativewind';
 
-LogBox.ignoreLogs(['expo-notifications: Android Push notifications']);
+// Firebase imports
 import { doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { db, auth as firebaseAuth } from './src/services/firebaseConfig';
 import { requestNotificationPermissions, setupNotificationListeners } from './src/services/notifications';
@@ -22,211 +24,159 @@ import HomeScreen from './src/screens/HomeScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import PrivacySettingsScreen from './src/screens/PrivacySettingsScreen';
-
 import QRProfileScreen from './src/screens/QRProfileScreen';
 import QRScannerScreen from './src/screens/QRScannerScreen';
-
 import LandingScreen from './src/screens/LandingScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import SplashScreen from './src/screens/SplashScreen';
+import { RootStackParamList } from './src/types/navigation';
 
-const Stack = createNativeStackNavigator();
+LogBox.ignoreLogs(['expo-notifications: Android Push notifications', 'Non-serializable values']);
 
-const Navigation = () => {
-  const [isReady, setIsReady] = useState(false);
-  const auth = useSelector((state: RootState) => state.auth);
-  const { primaryColor } = useSelector((state: RootState) => state.theme);
-  const dispatch = useDispatch();
-  const navigationRef = useRef<NavigationContainerRef<any>>(null);
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
-  useEffect(() => {
-    // Restore user session from storage for instant login
-    const restoreUserSession = async () => {
-      try {
-        const savedUser = await AsyncStorage.getItem('user');
-        if (savedUser) {
-          const userData = JSON.parse(savedUser);
-          dispatch(setUser(userData));
-        }
-      } catch (e) {
-        console.error('Failed to restore session', e);
-      }
-    };
-    restoreUserSession();
+/**
+ * Main Content Component: Handles screen switching based on auth state.
+ * Memoized to prevent re-renders when parent is reconciled (e.g., keyboard opening).
+ */
+const MainNavigator = React.memo(() => {
+    const auth = useSelector((state: RootState) => state.auth);
+    const [isSplashDone, setIsSplashDone] = useState(false);
 
-    const setupNotifications = async () => {
-      const granted = await requestNotificationPermissions();
-      if (granted) {
-        console.log('Notification permissions granted');
-      }
-    };
+    useEffect(() => {
+        const timer = setTimeout(() => setIsSplashDone(true), 2500);
+        return () => clearTimeout(timer);
+    }, []);
 
-    setupNotifications();
-
-    const cleanup = setupNotificationListeners(
-      (notification) => {
-        console.log('Notification received:', notification);
-      },
-      (response) => {
-        console.log('Notification response:', response);
-        // Handle notification tap to navigate to chat
-      }
+    return (
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+            {!isSplashDone ? (
+                <Stack.Screen name="Splash" component={SplashScreen} />
+            ) : !auth.uid ? (
+                <>
+                    <Stack.Screen name="Landing" component={LandingScreen} />
+                    <Stack.Screen name="Register" component={RegisterScreen} />
+                    <Stack.Screen name="Login" component={LoginScreen} />
+                    <Stack.Screen name="OTP" component={OTPScreen} />
+                </>
+            ) : (
+                <>
+                    <Stack.Screen name="Home" component={HomeScreen} />
+                    <Stack.Screen name="Chat" component={ChatScreen} />
+                    <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
+                    <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen} />
+                    <Stack.Screen name="Settings" component={SettingsScreen} />
+                    <Stack.Screen name="QRProfile" component={QRProfileScreen} />
+                    <Stack.Screen name="QRScanner" component={QRScannerScreen} />
+                </>
+            )}
+        </Stack.Navigator>
     );
+});
 
-    return cleanup;
-  }, []);
+/**
+ * Background Logic: Handles side effects like listeners and theme sync.
+ * This runs inside NavigationContainer but doesn't render anything itself.
+ */
+const BackgroundLogic = () => {
+    const auth = useSelector((state: RootState) => state.auth);
+    const { isDarkMode } = useSelector((state: RootState) => state.theme);
+    const { setColorScheme } = useColorScheme();
+    const dispatch = useDispatch();
 
-  useEffect(() => {
-    if (!isReady || !navigationRef.current) return;
-    
-    const currentRoute = navigationRef.current.getCurrentRoute();
-    const targetRoute = !auth.uid ? "Landing" : (auth.isNewUser && !auth.displayName ? "ProfileSetup" : "Home");
+    useEffect(() => {
+        const init = async () => {
+            const saved = await AsyncStorage.getItem('user');
+            if (saved) dispatch(setUser(JSON.parse(saved)));
 
-    // Splash navigation after delay
-    if (currentRoute?.name === 'Splash') {
-      const timeout = setTimeout(() => {
-        navigationRef.current?.navigate(targetRoute as never);
-      }, 2500);
-      return () => clearTimeout(timeout);
-    }
+            const savedTheme = await AsyncStorage.getItem('theme');
+            if (savedTheme) {
+                try {
+                    dispatch(restoreTheme(JSON.parse(savedTheme)));
+                } catch (e) {}
+            }
+            
+            const granted = await requestNotificationPermissions();
+            if (granted) setupNotificationListeners(() => {}, () => {});
+        };
+        init();
 
-    // Handle logout: if not authenticated and not on an auth screen, go to Landing
-    const authScreens = ['Landing', 'Login', 'Register', 'OTP', 'Splash'];
-    if (!auth.uid && !authScreens.includes(currentRoute?.name || '')) {
-      navigationRef.current.reset({
-        index: 0,
-        routes: [{ name: 'Landing' as never }],
-      });
-    }
+        const unsub = firebaseAuth.onAuthStateChanged(async (user) => {
+            if (user) {
+                try {
+                    const userDoc = await getDoc(doc(db, 'users', user.uid));
+                    if (userDoc.exists()) {
+                        const data = userDoc.data();
+                        dispatch(setUser({ uid: user.uid, phoneNumber: data.phoneNumber || null, ...data }));
+                    }
+                } catch (e) {}
+            } else {
+                dispatch(logout());
+            }
+        });
 
-    // Handle login: if authenticated and we're currently on an auth screen (excluding OTP/ProfileSetup logic)
-    if (auth.uid && authScreens.includes(currentRoute?.name || '') && currentRoute?.name !== 'Splash') {
-       navigationRef.current.reset({
-        index: 0,
-        routes: [{ name: targetRoute as never }],
-      });
-    }
+        return unsub;
+    }, []);
 
-  }, [auth.uid, auth.isNewUser, auth.displayName, isReady]);
+    useEffect(() => {
+        setColorScheme(isDarkMode ? 'dark' : 'light');
+    }, [isDarkMode]);
 
-  const isMounted = useRef(true);
+    useEffect(() => {
+        if (!auth?.uid) return;
+        const updateStatus = async (status: 'online' | 'offline') => {
+            try {
+                const userRef = doc(db, 'users', auth.uid!);
+                await setDoc(userRef, { status, lastSeen: serverTimestamp() }, { merge: true });
+            } catch (e: any) {}
+        };
+        const sub = AppState.addEventListener('change', (next) => updateStatus(next === 'active' ? 'online' : 'offline'));
+        updateStatus('online');
+        return () => { sub.remove(); updateStatus('offline'); };
+    }, [auth.uid]);
 
-  useEffect(() => {
-    isMounted.current = true;
-    return () => { isMounted.current = false; };
-  }, []);
-
-  const [firebaseUser, setFirebaseUser] = useState(firebaseAuth.currentUser);
-  useEffect(() => {
-    const unsubscribe = firebaseAuth.onAuthStateChanged(async (user) => {
-      setFirebaseUser(user);
-      if (user) {
-        // If Redux is empty or doesn't match the authenticated user, restore from Firestore
-        if (auth.uid !== user.uid) {
-           try {
-             const userDoc = await getDoc(doc(db, 'users', user.uid));
-             if (userDoc.exists()) {
-               const userData = userDoc.data();
-               dispatch(setUser({
-                 uid: user.uid,
-                 phoneNumber: userData.phoneNumber,
-                 displayName: userData.displayName,
-                 photoURL: userData.photoURL,
-                 isNewUser: userData.isNewUser || false,
-               }));
-             }
-           } catch (e) {
-             console.error('Session sync failed', e);
-           }
-        }
-      } else {
-        // If no user in Firebase and we think we're authenticated, log out
-        if (auth.uid) {
-           dispatch(logout());
-        }
-      }
-    });
-    return unsubscribe;
-  }, [auth.uid]);
-
-  useEffect(() => {
-    if (!auth.uid || !firebaseUser) return;
-
-    const updateStatus = async (status: 'online' | 'offline') => {
-      try {
-        if (!isMounted.current && status === 'online') return;
-        const userRef = doc(db, 'users', firebaseUser.uid);
-        await setDoc(userRef, {
-          status,
-          lastSeen: serverTimestamp(),
-        }, { merge: true });
-      } catch (e) {
-        console.error('Status update failed', e);
-      }
-    };
-
-    updateStatus(AppState.currentState === 'active' ? 'online' : 'offline');
-
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      updateStatus(nextAppState === 'active' ? 'online' : 'offline');
-    });
-
-    return () => {
-      subscription.remove();
-      updateStatus('offline');
-    };
-  }, [auth.uid, firebaseUser]);
-
-  const MyTheme = useMemo(() => ({
-    dark: false,
-    colors: {
-      primary: primaryColor,
-      background: '#FFFFFF',
-      card: '#FFFFFF',
-      text: '#1A1C1E',
-      border: 'rgba(73,99,255,0.1)',
-      notification: primaryColor,
-    },
-    fonts: {
-      regular: { fontFamily: 'System', fontWeight: '400' as const },
-      medium: { fontFamily: 'System', fontWeight: '500' as const },
-      bold: { fontFamily: 'System', fontWeight: '700' as const },
-      heavy: { fontFamily: 'System', fontWeight: '900' as const },
-    }
-  }), [primaryColor]);
-
-  return (
-    <NavigationContainer 
-      ref={navigationRef} 
-      theme={MyTheme}
-      onReady={() => setIsReady(true)}
-    >
-      <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Splash">
-        <Stack.Screen name="Splash" component={SplashScreen} />
-        <Stack.Screen name="Landing" component={LandingScreen} />
-        <Stack.Screen name="Register" component={RegisterScreen} />
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="OTP" component={OTPScreen} />
-        <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
-        <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen name="Chat" component={ChatScreen} />
-        <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen} />
-        <Stack.Screen name="Settings" component={SettingsScreen} />
-        <Stack.Screen name="QRProfile" component={QRProfileScreen} />
-        <Stack.Screen name="QRScanner" component={QRScannerScreen} />
-      </Stack.Navigator>
-    </NavigationContainer>
-  );
+    return null;
 };
 
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+/**
+ * Root Component: Provides stable NavigationContainer.
+ */
+const RootNavigator = () => {
+    const { primaryColor, isDarkMode } = useSelector((state: RootState) => state.theme);
+
+    const MyTheme = useMemo(() => ({
+        dark: isDarkMode,
+        colors: {
+            ...DefaultTheme.colors,
+            primary: primaryColor,
+            background: isDarkMode ? '#101419' : '#FFFFFF',
+            card: isDarkMode ? '#181C24' : '#FFFFFF',
+            text: isDarkMode ? '#E2E8F0' : '#1A1C1E',
+            border: 'transparent',
+            notification: primaryColor,
+        },
+        fonts: {
+          regular: { fontFamily: 'System', fontWeight: '400' as const },
+          medium: { fontFamily: 'System', fontWeight: '500' as const },
+          bold: { fontFamily: 'System', fontWeight: '700' as const },
+          heavy: { fontFamily: 'System', fontWeight: '900' as const },
+        }
+    }), [primaryColor, isDarkMode]);
+
+    return (
+        <NavigationContainer theme={MyTheme as any}>
+            <BackgroundLogic />
+            <MainNavigator />
+        </NavigationContainer>
+    );
+};
 
 export default function App() {
-  return (
-    <Provider store={store}>
-      <SafeAreaProvider>
-        <Navigation />
-      </SafeAreaProvider>
-    </Provider>
-  );
+    return (
+        <Provider store={store}>
+            <SafeAreaProvider>
+                <RootNavigator />
+            </SafeAreaProvider>
+        </Provider>
+    );
 }

@@ -5,12 +5,14 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import Header from '../components/ui/Header';
 import ScreenBackground from '../components/ui/ScreenBackground';
+import { useNavigation } from '@react-navigation/native';
 import { QrCode, Share2, Copy, Eye, EyeOff } from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 const QRProfileScreen = () => {
   const user = useSelector((state: RootState) => state.auth);
   const { primaryColor } = useSelector((state: RootState) => state.theme);
+  const navigation = useNavigation();
   const [showRawData, setShowRawData] = useState(false);
 
   const qrData = useMemo(() => {
@@ -51,7 +53,7 @@ const QRProfileScreen = () => {
   return (
     <ScreenBackground>
       <StatusBar style="light" backgroundColor={primaryColor} />
-      <Header title="My QR Code" showBack />
+      <Header title="My QR Code" showBack navigation={navigation} />
 
       <View className="flex-1 px-6 py-8">
         <View className="items-center">

@@ -5,9 +5,11 @@ import { Shield, Eye, Bell, Globe, ChevronRight } from 'lucide-react-native';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import Header from '../components/ui/Header';
+import { useNavigation } from '@react-navigation/native';
 
 const PrivacySettingsScreen = () => {
     const { primaryColor } = useSelector((state: RootState) => state.theme);
+    const navigation = useNavigation();
     const [showOnline, setShowOnline] = useState(true);
     const [readReceipts, setReadReceipts] = useState(true);
     const [allowStrangers, setAllowStrangers] = useState(false);
@@ -33,7 +35,7 @@ const PrivacySettingsScreen = () => {
     return (
         <View className="flex-1 bg-surface">
             <StatusBar barStyle="light-content" backgroundColor={primaryColor} />
-            <Header title="Privacy" showBack transparent={false} />
+            <Header title="Privacy" showBack navigation={navigation} transparent={false} />
             
             <ScrollView className="px-6 py-8">
 

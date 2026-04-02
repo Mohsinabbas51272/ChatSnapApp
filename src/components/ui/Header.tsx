@@ -2,10 +2,11 @@ import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+
 
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
+import { useResponsive } from '../../hooks/useResponsive';
 
 interface HeaderProps {
   title?: string;
@@ -13,6 +14,7 @@ interface HeaderProps {
   showBack?: boolean;
   rightElement?: React.ReactNode;
   transparent?: boolean;
+  navigation?: any;
 }
 
 const Header: React.FC<HeaderProps> = React.memo(({ 
@@ -20,10 +22,11 @@ const Header: React.FC<HeaderProps> = React.memo(({
   subtitle,
   showBack = false, 
   rightElement,
-  transparent = false
+  transparent = false,
+  navigation
 }) => {
-  const navigation = useNavigation();
   const { primaryColor } = useSelector((state: RootState) => state.theme);
+  const { isTablet } = useResponsive();
 
   const containerStyle = useMemo(() => ({ 
     backgroundColor: transparent ? 'transparent' : primaryColor,
@@ -42,11 +45,13 @@ const Header: React.FC<HeaderProps> = React.memo(({
       style={containerStyle}
     >
       <StatusBar barStyle="light-content" backgroundColor={primaryColor} />
-      <View className="flex-row items-center justify-between px-4 py-4 h-[60]">
+      <View 
+        className={`flex-row items-center justify-between px-4 py-4 ${isTablet ? 'h-24' : 'h-[60px]'}`}
+      >
         <View className="w-10">
-          {showBack && (
+          {(showBack && navigation) && (
             <TouchableOpacity 
-              onPress={() => navigation.goBack()}
+              onPress={() => navigation?.goBack?.()}
               className="w-10 h-10 items-center justify-center rounded-full"
               style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
             >
@@ -58,7 +63,7 @@ const Header: React.FC<HeaderProps> = React.memo(({
         <View className="flex-1 items-center justify-center px-4">
           {title && (
             <Text
-              className={`font-black text-white tracking-tight ${subtitle ? 'text-lg' : 'text-xl'}`}
+              className={`font-black text-white tracking-tight ${isTablet ? 'text-3xl' : subtitle ? 'text-lg' : 'text-xl'}`}
               numberOfLines={1}
               ellipsizeMode="tail"
               style={{ maxWidth: '100%' }}

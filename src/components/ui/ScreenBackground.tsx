@@ -3,6 +3,7 @@ import { View, Text } from 'react-native';
 import { ShieldCheck } from 'lucide-react-native';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
+import { useResponsive } from '../../hooks/useResponsive';
 
 interface ScreenBackgroundProps {
   children?: React.ReactNode;
@@ -16,14 +17,17 @@ const ScreenBackground: React.FC<ScreenBackgroundProps> = React.memo(({
   showBubbles = true 
 }) => {
   const { primaryColor } = useSelector((state: RootState) => state.theme);
+  const { isTablet, getResponsiveContainerStyle } = useResponsive();
 
   const bubble1Style = useMemo(() => ({ backgroundColor: primaryColor, transform: [{ scale: 1.2 }] }), [primaryColor]);
   const bubble2Style = useMemo(() => ({ backgroundColor: '#c500e6', transform: [{ scale: 1.25 }] }), []);
   const bubble3Style = useMemo(() => ({ backgroundColor: primaryColor }), [primaryColor]);
 
   return (
-    <View className="flex-1 bg-white">
-      {children}
+    <View className="flex-1 bg-surface">
+      <View style={getResponsiveContainerStyle()}>
+        {children}
+      </View>
 
       {showBubbles && (
         <>

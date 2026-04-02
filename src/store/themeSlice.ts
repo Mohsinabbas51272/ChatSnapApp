@@ -5,12 +5,14 @@ export interface ThemeState {
   primaryColor: string;
   themeName: string;
   mood: string;
+  isDarkMode: boolean;
 }
 
 const initialState: ThemeState = {
   primaryColor: '#9ba8ff', // Electric Intimacy Primary
   themeName: 'Electric Intimacy',
   mood: 'Chill',
+  isDarkMode: true,
 };
 
 const moodMap: { [key: string]: { color: string; name: string } } = {
@@ -28,6 +30,7 @@ const persistTheme = (state: ThemeState) => {
     primaryColor: state.primaryColor,
     themeName: state.themeName,
     mood: state.mood,
+    isDarkMode: state.isDarkMode,
   })).catch(() => {});
 };
 
@@ -38,6 +41,10 @@ const themeSlice = createSlice({
     setTheme: (state, action: PayloadAction<{ primaryColor: string; themeName: string }>) => {
       state.primaryColor = action.payload.primaryColor;
       state.themeName = action.payload.themeName;
+      persistTheme(state);
+    },
+    toggleDarkMode: (state) => {
+      state.isDarkMode = !state.isDarkMode;
       persistTheme(state);
     },
     setMood: (state, action: PayloadAction<string>) => {
@@ -53,9 +60,11 @@ const themeSlice = createSlice({
       state.primaryColor = action.payload.primaryColor;
       state.themeName = action.payload.themeName;
       state.mood = action.payload.mood;
+      state.isDarkMode = action.payload.isDarkMode || false;
     },
   },
 });
 
-export const { setTheme, setMood, restoreTheme } = themeSlice.actions;
+export const { setTheme, setMood, restoreTheme, toggleDarkMode } = themeSlice.actions;
 export default themeSlice.reducer;
+

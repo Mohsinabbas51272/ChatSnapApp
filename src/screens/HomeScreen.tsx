@@ -14,8 +14,10 @@ import SnapViewer from '../components/SnapViewer';
 import ContactsScreen from './ContactsScreen';
 import ConversationsList from '../components/ConversationsList';
 import SettingsScreen from './SettingsScreen';
-import { subscribeToFriendRequests } from '../services/social';
+import { subscribeToFriendRequests, subscribeToFriends } from '../services/social';
 import Header from '../components/ui/Header';
+import { useResponsive } from '../hooks/useResponsive';
+import { RootStackScreenProps } from '../types/navigation';
 
 const Tab = createBottomTabNavigator();
 
@@ -30,6 +32,16 @@ const StoriesScreen = () => {
   const [isPaused, setIsPaused] = useState(false);
   const user = useSelector((state: RootState) => state.auth);
   const { primaryColor } = useSelector((state: RootState) => state.theme);
+
+  const [friends, setFriends] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!user.uid) return;
+    const unsub = subscribeToFriends(user.uid, (friendIds: string[]) => {
+      setFriends(friendIds);
+    });
+    return unsub;
+  }, [user.uid]);
 
   const loadStories = async () => {
     setLoading(true);
@@ -49,7 +61,13 @@ const StoriesScreen = () => {
 
   const groupedStories = useMemo(() => {
     const groups: Map<string, GroupedStory> = new Map();
-    stories.forEach(story => {
+    
+    // Only show stories from the current user OR active friends
+    const filteredStories = stories.filter(
+      story => String(story.userId) === String(user.uid) || friends.includes(String(story.userId))
+    );
+
+    filteredStories.forEach(story => {
       const uid = String(story.userId);
       if (!groups.has(uid)) {
          groups.set(uid, {
@@ -66,7 +84,7 @@ const StoriesScreen = () => {
     });
     
     return Array.from(groups.values());
-  }, [stories, user.uid]);
+  }, [stories, user.uid, friends]);
 
   const handleAddStory = async (uri: string, filter: string = 'none') => {
     setLoading(true);
@@ -228,14 +246,19 @@ const FOCUSED_ICON_STYLE = {
 };
 const UNFOCUSED_ICON_STYLE = { width: 44, height: 44, alignItems: 'center' as const, justifyContent: 'center' as const };
 
-const HomeScreen = () => {
+import { getFocusedRouteNameFromRoute, useNavigation } from '@react-navigation/native';
+
+const HomeScreen = ({ route, navigation }: RootStackScreenProps<'Home'>) => {
+  const { isTablet, getResponsiveContainerStyle } = useResponsive();
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
-  const [activeTab, setActiveTab] = useState('Chats');
+  const activeTab = getFocusedRouteNameFromRoute(route) ?? 'Chats';
   const [requestCount, setRequestCount] = useState(0);
   const { primaryColor } = useSelector((state: RootState) => state.theme);
   const authUser = useSelector((state: RootState) => state.auth);
   const insets = useSafeAreaInsets();
+  // prop used instead of hook to avoid context loss in complex nesting
+  // const navigation = useNavigation();
 
   useEffect(() => {
     if (!authUser.uid) return;
@@ -244,9 +267,6 @@ const HomeScreen = () => {
     });
     return unsub;
   }, [authUser.uid]);
-
-  const MemoizedChats = useCallback(() => <ConversationsList searchQuery={searchQuery} />, [searchQuery]);
-  const MemoizedContacts = useCallback(() => <ContactsScreen searchQuery={searchQuery} />, [searchQuery]);
 
   const titles: Record<string, string> = {
     'Chats': 'ChatSnap',
@@ -279,6 +299,7 @@ const HomeScreen = () => {
           </SafeAreaView>
         ) : (
           <Header 
+            navigation={navigation}
             title={titles[activeTab] || 'ChatSnap'} 
             rightElement={
               <TouchableOpacity onPress={() => setShowSearch(true)} className="p-2 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
@@ -291,41 +312,38 @@ const HomeScreen = () => {
         <Tab.Navigator
           screenOptions={{
             headerShown: false,
+            tabBarShowLabel: true,
             tabBarStyle: {
-              height: 65 + insets.bottom,
-              paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
-              paddingTop: 12,
+              height: (isTablet ? 100 : 75) + insets.bottom,
+              paddingBottom: insets.bottom > 0 ? insets.bottom : (isTablet ? 25 : 12),
+              paddingTop: 10,
               backgroundColor: primaryColor,
               borderTopWidth: 0,
-              borderTopLeftRadius: 28,
-              borderTopRightRadius: 28,
-              elevation: 10,
+              borderTopLeftRadius: isTablet ? 48 : 36,
+              borderTopRightRadius: isTablet ? 48 : 36,
+              elevation: 20,
               shadowColor: primaryColor,
-              shadowOpacity: 0.3,
-              shadowOffset: { width: 0, height: -4 },
-              shadowRadius: 16,
+              shadowOpacity: 0.4,
+              shadowOffset: { width: 0, height: -6 },
+              shadowRadius: 20,
               position: 'absolute',
               bottom: 0,
               left: 0,
               right: 0,
             },
             tabBarActiveTintColor: '#FFFFFF',
-            tabBarInactiveTintColor: 'rgba(255,255,255,0.6)',
+            tabBarInactiveTintColor: 'rgba(255,255,255,0.5)',
             tabBarLabelStyle: {
-              fontWeight: 'bold',
-              fontSize: 11,
+              fontWeight: '900',
+              fontSize: isTablet ? 14 : 10,
+              textTransform: 'uppercase',
+              letterSpacing: 1.2,
+              marginBottom: 4,
             }
-          }}
-          screenListeners={{
-            state: (e) => {
-              const routeName = (e.data as any).state.routes[(e.data as any).state.index].name;
-              setActiveTab(routeName);
-            },
           }}
         >
           <Tab.Screen 
             name="Chats" 
-            children={MemoizedChats}
             options={{
               tabBarIcon: ({ color, focused }) => (
                 <View style={focused ? FOCUSED_ICON_STYLE : UNFOCUSED_ICON_STYLE}>
@@ -333,7 +351,10 @@ const HomeScreen = () => {
                 </View>
               ),
             }}
-          />
+          >
+            {(props) => <ConversationsList {...props} searchQuery={searchQuery} />}
+          </Tab.Screen>
+
           <Tab.Screen 
             name="Stories" 
             component={MemoizedStoriesScreen} 
@@ -345,19 +366,28 @@ const HomeScreen = () => {
               ),
             }}
           />
+
           <Tab.Screen 
             name="Contacts" 
-            children={MemoizedContacts}
             options={{
               tabBarBadge: requestCount > 0 ? requestCount : undefined,
-              tabBarBadgeStyle: { backgroundColor: '#ff6e85', color: 'white', fontSize: 10 },
+              tabBarBadgeStyle: { 
+                backgroundColor: '#FF3B30', 
+                color: 'white', 
+                fontSize: 10, 
+                fontWeight: '900',
+                marginTop: -4
+               },
               tabBarIcon: ({ color, focused }) => (
                 <View style={focused ? FOCUSED_ICON_STYLE : UNFOCUSED_ICON_STYLE}>
-                  <Users size={22} color="white" />
+                  <Users size={22} color="white" fill={focused ? 'white' : 'transparent'} />
                 </View>
               ),
             }}
-          />
+          >
+            {(props) => <ContactsScreen {...props} searchQuery={searchQuery} />}
+          </Tab.Screen>
+
           <Tab.Screen 
             name="Settings" 
             component={SettingsScreen} 
