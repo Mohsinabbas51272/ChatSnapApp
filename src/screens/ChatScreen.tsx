@@ -26,7 +26,7 @@ import {
   toggleSecretChat,
   subscribeToSecretConversations
 } from '../services/messaging';
-import { subscribeToGroupMessages, sendGroupMessage } from '../services/groups';
+import { subscribeToGroupMessages, sendGroupMessage, deleteGroupMessage } from '../services/groups';
 import { blockUser, unblockUser, subscribeToBlockedUsers, subscribeToWhoBlockedMe } from '../services/social';
 
 import ChatHeader from '../components/chat/ChatHeader';
@@ -294,7 +294,7 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
         isSecret={isSecret}
         handleToggleSecret={() => toggleSecretChat(currentUser.uid!, chatPartner.uid, !isSecret)}
         handleClearChat={async () => {
-          await Promise.all(messages.map(m => deleteMessage(m.id!)));
+          await Promise.all(messages.map(m => isGroup ? deleteGroupMessage(m.id!) : deleteMessage(m.id!)));
           Alert.alert("Success", "Chat cleared");
         }}
         blockedByMe={blockedByMe}
@@ -331,7 +331,10 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
                     setReactionMessageId(null);
                   }
                 }}
-                handleDeleteMessage={(id) => { deleteMessage(id); setReactionMessageId(null); }}
+                handleDeleteMessage={(id) => { 
+                   isGroup ? deleteGroupMessage(id) : deleteMessage(id); 
+                   setReactionMessageId(null); 
+                }}
                 primaryColor={primaryColor}
                 isGroup={isGroup}
                 isDarkMode={isDarkMode}

@@ -7,14 +7,16 @@ export type RootStackParamList = {
   Landing: undefined;
   Register: undefined;
   Login: undefined;
-  OTP: { phoneNumber: string; displayName: string; isNewUser: boolean };
+  OTP: { phoneNumber: string; displayName: string; email: string; isNewUser: boolean };
   Home: undefined;
   Chat: { user?: any; group?: any; isSecret?: boolean };
   ProfileSetup: { isFromSettings?: boolean };
+  FindFriends: undefined;
   PrivacySettings: undefined;
   Settings: undefined;
   QRProfile: undefined;
   QRScanner: undefined;
+  AdminPanel: undefined;
 };
 
 export type HomeTabParamList = {

@@ -18,15 +18,15 @@ const Input: React.FC<InputProps> = ({
   return (
     <View className={`mb-4 ${containerClassName}`}>
       {label && (
-        <Text className="text-outline text-[10px] font-bold uppercase tracking-widest mb-2 ml-1">{label}</Text>
+        <Text className="text-outline text-xs font-black uppercase tracking-widest mb-2 ml-1">{label}</Text>
       )}
       <View 
-        className={`bg-surface-container-low rounded-2xl py-4 border ${
+        className={`bg-surface-container-low dark:bg-black rounded-2xl py-4 border ${
           error ? 'border-secondary' : 'border-outline-variant/10'
         } ${inputContainerClassName || 'px-5'}`}
       >
         <TextInput
-          className="text-onSurface font-medium p-0"
+          className="text-onSurface dark:text-white font-medium p-0"
           placeholderTextColor="#464752"
           textAlignVertical="center"
           {...props}

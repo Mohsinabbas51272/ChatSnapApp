@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ScrollView, StatusBar } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { ShieldCheck } from 'lucide-react-native';
@@ -16,22 +16,142 @@ import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import ScreenBackground from '../components/ui/ScreenBackground';
 
 const OTPScreen = ({ navigation, route }: any) => {
-  const { primaryColor } = useSelector((state: RootState) => state.theme);
+  const { primaryColor, isDarkMode } = useSelector((state: RootState) => state.theme);
   const { isTablet, getResponsiveContainerStyle } = useResponsive();
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { phoneNumber, displayName, isNewUser } = route.params;
+  const { phoneNumber, displayName, email, isNewUser } = route.params;
   const dispatch = useDispatch();
 
-  const handleVerify = async () => {
-    if (otp !== '112233') {
-      setError('Invalid code. For now, use 112233');
-      return;
-    }
+  const [timer, setTimer] = useState(60);
+  const [isResending, setIsResending] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  useEffect(() => {
+    startTimer();
+    return () => stopTimer();
+  }, []);
+
+  const startTimer = () => {
+    stopTimer();
+    setTimer(60);
+    timerRef.current = setInterval(() => {
+      setTimer((prev) => {
+        if (prev <= 1) {
+          stopTimer();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const stopTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const handleResend = async () => {
+    if (isResending) return;
+
+    setIsResending(true);
+    try {
+      // 1. Generate new 6-digit code
+      const newCode = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // 2. Update Firestore 'verificationCodes'
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+
+      await setDoc(doc(db, 'verificationCodes', email.toLowerCase()), {
+        code: newCode,
+        expiresAt: expiresAt.toISOString(),
+      });
+
+      // 3. Send Email via EmailJS
+      await sendResendEmail(email, newCode);
+      
+      Alert.alert("Code Resent", "A new verification code has been sent to your Gmail.");
+      startTimer();
+    } catch (err: any) {
+      Alert.alert("Error", "Failed to resend code: " + err.message);
+    } finally {
+      setIsResending(false);
+    }
+  };
+
+  const sendResendEmail = async (userEmail: string, verificationCode: string) => {
+    const data = {
+        service_id: 'service_rqvkkuv',
+        template_id: 'template_748jngx',
+        user_id: 'U0m7o0zKnIl79aruS',
+        template_params: {
+            'to_email': userEmail,
+            'user_email': userEmail,
+            'email': userEmail,
+            'to': userEmail,
+            'recipient_email': userEmail,
+            'to_name': displayName,
+            'user_name': displayName,
+            'otp_code': verificationCode,
+            'password': verificationCode,
+            'code': verificationCode,
+            'message': verificationCode,
+            'otp': verificationCode,
+            'OTP': verificationCode,
+            'passcode': verificationCode
+        }
+    };
+
+    try {
+        const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        if (!response.ok) {
+            const errorBody = await response.text();
+            console.warn('Resend EmailJS Failed:', errorBody);
+        }
+    } catch (error: any) {
+        console.error('Resend Email Error:', error.message);
+    }
+  };
+
+  const handleVerify = async () => {
     setLoading(true);
     try {
+      // 1. Fetch real code from Firestore
+      const codeDocRef = doc(db, 'verificationCodes', email.toLowerCase());
+      const codeDocSnap = await getDoc(codeDocRef);
+
+      if (!codeDocSnap.exists()) {
+        setError('No verification code found. Please try again.');
+        setLoading(false);
+        return;
+      }
+
+      const { code: storedCode, expiresAt } = codeDocSnap.data();
+
+      // 2. Check Expiration
+      if (new Date() > new Date(expiresAt)) {
+        setError('Code expired. Please request a new one.');
+        setLoading(false);
+        return;
+      }
+
+      // 3. Match Code
+      if (otp !== storedCode) {
+        setError('Invalid code. Please check your Gmail.');
+        setLoading(false);
+        return;
+      }
+
+      // 4. Success - Proceed with Auth
       // 1. Check if user already exists with this phone number in Firestore
       const usersRef = collection(db, 'users');
       const q = query(usersRef, where('phoneNumber', '==', phoneNumber));
@@ -72,6 +192,7 @@ const OTPScreen = ({ navigation, route }: any) => {
           finalUser = { 
             ...existingData, 
             uid: authUid, 
+            email: email.toLowerCase(),
             lastLogin: new Date().toISOString(),
             status: 'online'
           };
@@ -83,6 +204,7 @@ const OTPScreen = ({ navigation, route }: any) => {
           finalUser = { 
             ...existingData, 
             uid: authUid, 
+            email: email.toLowerCase(),
             lastLogin: new Date().toISOString(),
             status: 'online'
           };
@@ -91,6 +213,7 @@ const OTPScreen = ({ navigation, route }: any) => {
           finalUser = {
             uid: authUid,
             phoneNumber: phoneNumber,
+            email: email.toLowerCase(),
             displayName: displayName || 'Anonymous User',
             photoURL: null,
             isNewUser: true,
@@ -131,18 +254,19 @@ const OTPScreen = ({ navigation, route }: any) => {
       <Header title="Verify Identity" showBack />
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         className="flex-1"
       >
         <ScrollView 
-          contentContainerStyle={{ flexGrow: 1, justifyContent: isTablet ? 'center' : 'flex-start' }} 
+          contentContainerStyle={{ flexGrow: 1 }} 
           className="flex-1"
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <View style={getResponsiveContainerStyle()} className="px-6">
+          <View style={[getResponsiveContainerStyle(), { flex: 1, paddingBottom: 40 }]} className="px-6">
             <Animated.View 
               entering={FadeInDown.duration(800)} 
-              className={`mb-12 ${isTablet ? 'items-center' : ''}`}
+              className={`mb-12 mt-10 ${isTablet ? 'items-center' : ''}`}
             >
               <View className="flex-row items-center self-start px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-6">
                 <ShieldCheck size={16} color={primaryColor} />
@@ -161,8 +285,8 @@ const OTPScreen = ({ navigation, route }: any) => {
               className={`space-y-8 ${isTablet ? 'max-w-md self-center w-full' : ''}`}
             >
               <View>
-                <Text className="text-onSurface-variant text-[10px] font-black uppercase tracking-widest mb-2 ml-1">6-Digit Code</Text>
                 <Input
+                  label="6-Digit Verification Code"
                   placeholder="112233"
                   keyboardType="number-pad"
                   maxLength={6}
@@ -173,17 +297,23 @@ const OTPScreen = ({ navigation, route }: any) => {
                   }}
                   autoFocus
                   textAlign="center"
-                  style={{ fontSize: 32, letterSpacing: 8, fontWeight: 'bold', paddingLeft: 8, lineHeight: 40 }}
-                  inputContainerClassName="px-0 py-6"
+                  style={{ 
+                    fontSize: 32, 
+                    letterSpacing: 8, 
+                    fontWeight: 'bold', 
+                    paddingLeft: 8, 
+                    color: isDarkMode ? '#FFFFFF' : '#1A1C1E' 
+                  }}
+                  inputContainerClassName="px-0 py-4 border-2 dark:bg-black"
                   error={error}
                 />
               </View>
 
-              <View className="flex-1 justify-end pb-8">
+              <View className="pt-4">
                   <TouchableOpacity 
                       onPress={handleVerify}
                       disabled={otp.length !== 6 || loading}
-                      className="w-full py-5 rounded-[24px] items-center mt-6 shadow-xl"
+                      className="w-full py-5 rounded-[24px] items-center shadow-xl"
                       style={{ 
                           backgroundColor: otp.length === 6 ? primaryColor : 'rgba(255,255,255,0.05)', 
                           opacity: loading ? 0.7 : 1,
@@ -202,8 +332,18 @@ const OTPScreen = ({ navigation, route }: any) => {
                       </Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity className="mt-8 self-center px-4 py-2">
-                      <Text className="text-onSurface-variant font-bold text-[10px] uppercase tracking-widest">Resend Code in 0:59</Text>
+                  <TouchableOpacity 
+                    onPress={handleResend}
+                    disabled={isResending}
+                    className="mt-8 self-center px-6 py-3 rounded-full"
+                    style={{ backgroundColor: `${primaryColor}10` }}
+                  >
+                      <Text 
+                        style={{ color: primaryColor }}
+                        className="text-[10px] font-black uppercase tracking-widest"
+                      >
+                        {isResending ? 'Sending...' : timer > 0 ? `Resend Code (${timer}s remaining)` : 'Resend New Code'}
+                      </Text>
                   </TouchableOpacity>
               </View>
             </Animated.View>

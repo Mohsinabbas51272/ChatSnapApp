@@ -29,6 +29,8 @@ import QRScannerScreen from './src/screens/QRScannerScreen';
 import LandingScreen from './src/screens/LandingScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import SplashScreen from './src/screens/SplashScreen';
+import FindFriendsScreen from './src/screens/FindFriendsScreen';
+import AdminPanelScreen from './src/screens/AdminPanelScreen';
 import { RootStackParamList } from './src/types/navigation';
 
 LogBox.ignoreLogs(['expo-notifications: Android Push notifications', 'Non-serializable values']);
@@ -157,10 +159,12 @@ const RootApp = () => {
                         <Stack.Screen name="Home" component={HomeScreen} />
                         <Stack.Screen name="Chat" component={ChatScreen} />
                         <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
+                        <Stack.Screen name="FindFriends" component={FindFriendsScreen} />
                         <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen} />
                         <Stack.Screen name="Settings" component={SettingsScreen} />
                         <Stack.Screen name="QRProfile" component={QRProfileScreen} />
                         <Stack.Screen name="QRScanner" component={QRScannerScreen} />
+                        <Stack.Screen name="AdminPanel" component={AdminPanelScreen} />
                     </>
                 )}
             </Stack.Navigator>

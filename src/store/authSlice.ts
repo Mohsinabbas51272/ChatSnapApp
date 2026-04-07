@@ -10,6 +10,7 @@ interface UserState {
   isNewUser: boolean;
   loading: boolean;
   error: string | null;
+  secretPassword?: string | null;
 }
 
 const initialState: UserState = {
@@ -21,6 +22,7 @@ const initialState: UserState = {
   isNewUser: false,
   loading: false,
   error: null,
+  secretPassword: null,
 };
 
 const authSlice = createSlice({
@@ -30,12 +32,13 @@ const authSlice = createSlice({
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.loading = action.payload;
     },
-    setUser: (state, action: PayloadAction<{ uid: string; phoneNumber: string | null; displayName?: string | null; photoURL?: string | null; isNewUser?: boolean }>) => {
+    setUser: (state, action: PayloadAction<{ uid: string; phoneNumber: string | null; displayName?: string | null; photoURL?: string | null; isNewUser?: boolean; secretPassword?: string | null }>) => {
       state.uid = action.payload.uid;
       state.phoneNumber = action.payload.phoneNumber;
       state.displayName = action.payload.displayName || null;
       state.photoURL = action.payload.photoURL || null;
       state.isNewUser = action.payload.isNewUser || false;
+      state.secretPassword = action.payload.secretPassword || null;
       state.isAuthenticated = true;
       state.loading = false;
       state.error = null;
@@ -47,6 +50,7 @@ const authSlice = createSlice({
         displayName: state.displayName,
         photoURL: state.photoURL,
         isNewUser: state.isNewUser,
+        secretPassword: state.secretPassword,
       };
       AsyncStorage.setItem('user', JSON.stringify(userData));
     },
@@ -63,6 +67,7 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.loading = false;
       state.error = null;
+      state.secretPassword = null;
       AsyncStorage.removeItem('user');
     },
   },

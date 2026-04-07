@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Image, ActivityIndicator, StatusBar, Platform } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, Image, ActivityIndicator, StatusBar, Platform, Modal, TextInput, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
-import { MessageSquare, Camera, Lock, MessageCircle } from 'lucide-react-native';
+import { MessageSquare, Camera, Lock, MessageCircle, Shield, Eye, EyeOff } from 'lucide-react-native';
 import { subscribeToConversations, subscribeToSecretConversations } from '../services/messaging';
 import {
   collection, addDoc, query, where, onSnapshot, serverTimestamp,
@@ -49,14 +49,85 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
   const [secretPartnerIds, setSecretPartnerIds] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'private' | 'groups' | 'secret'>('private');
   const navigation = useNavigation<any>();
+  const dispatch = useDispatch();
   const currentUser = useSelector((state: RootState) => state.auth);
   const { primaryColor, isDarkMode } = useSelector((state: RootState) => state.theme);
   const { isTablet, getResponsiveContainerStyle } = useResponsive();
+
+  // Secret Password State
+  const [showSecretSetup, setShowSecretSetup] = useState(false);
+  const [showSecretLogin, setShowSecretLogin] = useState(false);
+  const [tempPassword, setTempPassword] = useState('');
+  const [showPasswordText, setShowPasswordText] = useState(false);
 
   const textColor = isDarkMode ? '#FFFFFF' : '#1a1c1e';
   const subTextColor = isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.5)';
   const surfaceLow = isDarkMode ? '#000000' : '#F0F2FA';
   const surfaceHigh = isDarkMode ? '#000000' : '#E8EAF6';
+
+  const handleSecretTabPress = useCallback(() => {
+    if (viewMode === 'secret') return;
+    setTempPassword('');
+    setShowPasswordText(false);
+    
+    if (currentUser.secretPassword) {
+      setShowSecretLogin(true);
+    } else {
+      setShowSecretSetup(true);
+    }
+  }, [viewMode, currentUser.secretPassword]);
+
+  const handleSetupSecretPassword = async () => {
+    if (tempPassword.length < 4) {
+       Alert.alert("Weak Password", "Secret password must be at least 4 characters long.");
+       return;
+    }
+    
+    try {
+      await updateDoc(doc(db, 'users', currentUser.uid!), {
+        secretPassword: tempPassword
+      });
+      // Dynamically update redux state to avoid full refetch
+      dispatch({ type: 'auth/setUser', payload: { ...currentUser, secretPassword: tempPassword } });
+      setShowSecretSetup(false);
+      setTempPassword('');
+      setViewMode('secret');
+    } catch (e: any) {
+      Alert.alert("Error", "Could not save password. Please try again.");
+    }
+  };
+
+  const handleVerifySecretPassword = () => {
+    if (tempPassword === currentUser.secretPassword) {
+      setShowSecretLogin(false);
+      setTempPassword('');
+      setViewMode('secret');
+    } else {
+      Alert.alert("Access Denied", "Incorrect Secret Password.");
+    }
+  };
+
+  const handleForgotPassword = () => {
+    Alert.alert(
+      "Reset Secret Password",
+      "This will erase your current secret password. You'll need to set a new one. Are you sure?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Reset", style: "destructive", onPress: async () => {
+          try {
+            await updateDoc(doc(db, 'users', currentUser.uid!), { secretPassword: null });
+            dispatch({ type: 'auth/setUser', payload: { ...currentUser, secretPassword: null } });
+            setShowSecretLogin(false);
+            setTempPassword('');
+            setShowPasswordText(false);
+            setTimeout(() => setShowSecretSetup(true), 400);
+          } catch (e: any) {
+            Alert.alert("Error", "Could not reset password.");
+          }
+        }}
+      ]
+    );
+  };
 
   const filteredConversations = useMemo(() => conversations.filter(conv => {
     const title = conv.isGroup ? conv.group.name : (conv.user?.displayName || '');
@@ -298,7 +369,7 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
                 </TouchableOpacity>
                 
                 <TouchableOpacity
-                  onPress={() => setViewMode('secret')}
+                  onPress={handleSecretTabPress}
                   className={`flex-1 flex-row items-center justify-center py-3 rounded-2xl mx-1`}
                   style={{ backgroundColor: viewMode === 'secret' ? (isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.05)' : `${primaryColor}20`) : surfaceLow }}
                   activeOpacity={0.7}
@@ -344,6 +415,85 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
           />
         </View>
       )}
+
+      {/* SETUP SECRET PASSWORD MODAL */}
+      <Modal animationType="fade" transparent={true} visible={showSecretSetup} onRequestClose={() => setShowSecretSetup(false)}>
+          <TouchableOpacity className="flex-1 bg-black/80 items-center justify-center p-6" activeOpacity={1} onPress={() => setShowSecretSetup(false)}>
+              <View className={`rounded-[40px] p-8 w-full ${isTablet ? 'max-w-md' : ''}`} style={{ backgroundColor: isDarkMode ? '#0f111a' : '#FFFFFF' }} onStartShouldSetResponder={() => true} onResponderRelease={(e) => e.stopPropagation()}>
+                  <View className="items-center mb-6">
+                      <View className="w-16 h-16 rounded-full items-center justify-center mb-4 border border-rose-500/20" style={{ backgroundColor: `rgba(244, 63, 94, 0.1)` }}>
+                          <Shield size={32} color="#f43f5e" />
+                      </View>
+                      <Text className="text-2xl font-black tracking-tight" style={{ color: textColor }}>Setup Secret Lock</Text>
+                      <Text className="text-sm mt-2 text-center leading-5" style={{ color: subTextColor }}>Protect your hidden conversations. Set a master password to access the Secret tab.</Text>
+                  </View>
+
+                  <View className="w-full relative justify-center mb-6">
+                      <TextInput
+                          className="w-full py-4 pl-6 pr-14 rounded-2xl text-xl font-bold"
+                          style={{ backgroundColor: surfaceLow, color: textColor }}
+                          placeholder="Create Password"
+                          placeholderTextColor={subTextColor}
+                          secureTextEntry={!showPasswordText}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          value={tempPassword}
+                          onChangeText={setTempPassword}
+                          autoFocus
+                      />
+                      <TouchableOpacity onPress={() => setShowPasswordText(!showPasswordText)} className="absolute right-4 p-2">
+                          {showPasswordText ? <EyeOff size={20} color={subTextColor} /> : <Eye size={20} color={subTextColor} />}
+                      </TouchableOpacity>
+                  </View>
+
+                  <TouchableOpacity onPress={handleSetupSecretPassword} className="w-full py-4 rounded-2xl items-center bg-rose-500 shadow-lg shadow-rose-500/30">
+                      <Text className="text-white font-bold text-base uppercase tracking-widest">Save Password</Text>
+                  </TouchableOpacity>
+              </View>
+          </TouchableOpacity>
+      </Modal>
+
+      {/* LOGIN SECRET PASSWORD MODAL */}
+      <Modal animationType="fade" transparent={true} visible={showSecretLogin} onRequestClose={() => setShowSecretLogin(false)}>
+          <TouchableOpacity className="flex-1 bg-black/90 items-center justify-center p-6" activeOpacity={1} onPress={() => setShowSecretLogin(false)}>
+              <View className={`rounded-[40px] border border-rose-500/20 p-8 w-full ${isTablet ? 'max-w-md' : ''}`} style={{ backgroundColor: isDarkMode ? '#050505' : '#FFFFFF' }} onStartShouldSetResponder={() => true} onResponderRelease={(e) => e.stopPropagation()}>
+                  <View className="items-center mb-6">
+                      <View className="w-16 h-16 rounded-full items-center justify-center mb-4 bg-rose-500/10">
+                          <Lock size={32} color="#f43f5e" />
+                      </View>
+                      <Text className="text-2xl font-black tracking-tight" style={{ color: textColor }}>Secret Chats</Text>
+                      <Text className="text-sm mt-1 text-center" style={{ color: subTextColor }}>Enter your password to unlock.</Text>
+                  </View>
+
+                  <View className="w-full relative justify-center mb-6">
+                      <TextInput
+                          className="w-full py-4 pl-6 pr-14 rounded-2xl text-xl font-bold border border-rose-500/10"
+                          style={{ backgroundColor: isDarkMode ? '#0a0a0a' : '#F5F5F5', color: textColor }}
+                          placeholder="Password"
+                          placeholderTextColor={subTextColor}
+                          secureTextEntry={!showPasswordText}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          value={tempPassword}
+                          onChangeText={setTempPassword}
+                          autoFocus
+                      />
+                      <TouchableOpacity onPress={() => setShowPasswordText(!showPasswordText)} className="absolute right-4 p-2">
+                          {showPasswordText ? <EyeOff size={20} color={subTextColor} /> : <Eye size={20} color={subTextColor} />}
+                      </TouchableOpacity>
+                  </View>
+
+                  <TouchableOpacity onPress={handleVerifySecretPassword} className="w-full py-4 rounded-2xl items-center bg-rose-500 shadow-xl shadow-rose-500/30">
+                      <Text className="text-white font-bold text-base uppercase tracking-widest">Unlock</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity onPress={handleForgotPassword} className="w-full mt-4 items-center">
+                      <Text className="text-sm font-bold" style={{ color: '#f43f5e' }}>Forgot Password?</Text>
+                  </TouchableOpacity>
+              </View>
+          </TouchableOpacity>
+      </Modal>
+
     </View>
   );
 };

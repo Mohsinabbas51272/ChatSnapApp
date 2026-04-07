@@ -195,3 +195,47 @@ export const subscribeToWhoBlockedMe = (userId: string, callback: (blockerIds: s
     console.warn('Who blocked me sync error:', error.message);
   });
 };
+
+// Unfriend a user (Bidirectional removal)
+export const unfriend = async (friendId: string) => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) return;
+
+  // Delete from friends collection
+  const friendPairId = [currentUser.uid, friendId].sort().join('_');
+  await deleteDoc(doc(db, 'friends', friendPairId));
+
+  // Also cleanup any existing accepted requests (to prevent ghosting)
+  const requestsRef = collection(db, 'friendRequests');
+  const q = query(
+    requestsRef, 
+    or(
+        and(where('fromId', '==', currentUser.uid), where('toId', '==', friendId)),
+        and(where('fromId', '==', friendId), where('toId', '==', currentUser.uid))
+    )
+  );
+
+  const existing = await getDocs(q);
+  existing.forEach(async (d) => {
+    await deleteDoc(doc(db, 'friendRequests', d.id));
+  });
+};
+
+// Cancel a pending friend request
+export const cancelFriendRequest = async (toId: string) => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) return;
+
+  const requestsRef = collection(db, 'friendRequests');
+  const q = query(
+    requestsRef, 
+    where('fromId', '==', currentUser.uid), 
+    where('toId', '==', toId),
+    where('status', '==', 'pending')
+  );
+
+  const snapshot = await getDocs(q);
+  snapshot.forEach(async (d) => {
+    await deleteDoc(doc(db, 'friendRequests', d.id));
+  });
+};

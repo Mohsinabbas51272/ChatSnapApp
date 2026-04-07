@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Image, ActivityIndicator, StatusBar, Platform, TextInput, ScrollView } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, Image, ActivityIndicator, StatusBar, Platform, TextInput, ScrollView, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Header from '../components/ui/Header';
 import { syncContacts, ContactUser, searchUsers } from '../services/contacts';
@@ -11,12 +11,18 @@ import {
   subscribeToSentRequests,
   subscribeToBlockedUsers,
   subscribeToWhoBlockedMe,
+  unfriend,
+  cancelFriendRequest,
   FriendRequest
 } from '../services/social';
+import { subscribeToSecretConversations } from '../services/messaging';
 import { fetchUsersByIds } from '../services/contacts';
 import { useNavigation } from '@react-navigation/native';
-import { UserPlus, UserCheck, Clock, Check, X, Users, MessageCircle, Plus, Users as UsersIcon, Info } from 'lucide-react-native';
+import { UserPlus, UserCheck, Clock, Check, X, Users, MessageCircle, Plus, Users as UsersIcon, Info, Lock, Shield, Eye, EyeOff } from 'lucide-react-native';
 import { getMutualFriends, createGroup, subscribeToGroups, Group } from '../services/groups';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../services/firebaseConfig';
+import { useDispatch } from 'react-redux';
 
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
@@ -40,6 +46,7 @@ const ContactsScreen = ({ searchQuery = '' }: { searchQuery?: string }) => {
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
   const [friends, setFriends] = useState<string[]>([]);
   const [requestedIds, setRequestedIds] = useState<string[]>([]);
+  const [secretPartnerIds, setSecretPartnerIds] = useState<string[]>([]);
   const [blockedByMe, setBlockedByMe] = useState<string[]>([]);
   const [blockedByOther, setBlockedByOther] = useState<string[]>([]);
   const [mutualFriends, setMutualFriends] = useState<Record<string, number>>({});
@@ -47,8 +54,69 @@ const ContactsScreen = ({ searchQuery = '' }: { searchQuery?: string }) => {
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [selectedGroupMembers, setSelectedGroupMembers] = useState<string[]>([]);
   const [groupName, setGroupName] = useState('');
+
+  // Lock Flow States
+  const [showSecretSetup, setShowSecretSetup] = useState(false);
+  const [showSecretLogin, setShowSecretLogin] = useState(false);
+  const [tempPassword, setTempPassword] = useState('');
+  const [showPasswordText, setShowPasswordText] = useState(false);
+  const [pendingSecretUser, setPendingSecretUser] = useState<ContactUser | null>(null);
+
   const auth = useSelector((state: RootState) => state.auth);
   const navigation = useNavigation<any>();
+  const dispatch = useDispatch();
+
+  const handleSetupSecretPassword = async () => {
+    if (tempPassword.length < 4) {
+       Alert.alert("Weak Password", "Secret password must be at least 4 characters long.");
+       return;
+    }
+    try {
+      await updateDoc(doc(db, 'users', auth.uid!), { secretPassword: tempPassword });
+      dispatch({ type: 'auth/setUser', payload: { ...auth, secretPassword: tempPassword } });
+      setShowSecretSetup(false);
+      setTempPassword('');
+      if (pendingSecretUser) {
+         navigation.navigate('Chat', { user: pendingSecretUser });
+         setPendingSecretUser(null);
+      }
+    } catch (e: any) {}
+  };
+
+  const handleVerifySecretPassword = () => {
+    if (tempPassword === auth.secretPassword) {
+      setShowSecretLogin(false);
+      setTempPassword('');
+      if (pendingSecretUser) {
+         navigation.navigate('Chat', { user: pendingSecretUser });
+         setPendingSecretUser(null);
+      }
+    } else {
+      Alert.alert("Access Denied", "Incorrect Secret Password.");
+    }
+  };
+
+  const handleForgotPassword = () => {
+    Alert.alert(
+      "Reset Secret Password",
+      "This will erase your current secret password. You'll need to set a new one. Are you sure?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Reset", style: "destructive", onPress: async () => {
+          try {
+            await updateDoc(doc(db, 'users', auth.uid!), { secretPassword: null });
+            dispatch({ type: 'auth/setUser', payload: { ...auth, secretPassword: null } });
+            setShowSecretLogin(false);
+            setTempPassword('');
+            setShowPasswordText(false);
+            setPendingSecretUser(null);
+          } catch (e: any) {
+            Alert.alert("Error", "Could not reset password.");
+          }
+        }}
+      ]
+    );
+  };
 
   const filteredContacts = useMemo(() => {
     const hiddenUids = new Set([...blockedByMe, ...blockedByOther]);
@@ -118,6 +186,10 @@ const ContactsScreen = ({ searchQuery = '' }: { searchQuery?: string }) => {
       setGroups(data);
     });
 
+    const unsubSecret = subscribeToSecretConversations(auth.uid, (ids) => {
+      setSecretPartnerIds(ids);
+    });
+
     return () => {
       unsubRequests();
       unsubFriends();
@@ -125,6 +197,7 @@ const ContactsScreen = ({ searchQuery = '' }: { searchQuery?: string }) => {
       unsubBlockedMe();
       unsubWhoBlocked();
       unsubGroups();
+      unsubSecret();
     };
   }, [auth.uid]);
 
@@ -182,6 +255,30 @@ const ContactsScreen = ({ searchQuery = '' }: { searchQuery?: string }) => {
     } catch (error: any) {
       alert(error.message);
     }
+  };
+  const handleCancelRequest = async (contact: ContactUser) => {
+    try {
+      await cancelFriendRequest(contact.uid);
+    } catch (error: any) {
+      alert(error.message);
+    }
+  };
+
+  const handleUnfriend = async (contact: ContactUser) => {
+    Alert.alert(
+      "Unfriend",
+      `Are you sure you want to remove ${contact.displayName}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Remove", style: "destructive", onPress: async () => {
+          try {
+            await unfriend(contact.uid);
+          } catch (error: any) {
+            alert(error.message);
+          }
+        }}
+      ]
+    );
   };
 
   const handleCreateGroup = async () => {
@@ -282,9 +379,22 @@ const ContactsScreen = ({ searchQuery = '' }: { searchQuery?: string }) => {
           if (showCreateGroup) {
             if (isFriend) toggleMemberSelection(item.uid);
           } else {
-            isFriend ? navigation.navigate('Chat', { user: item }) : handleSendRequest(item)
+            if (isFriend) {
+               if (secretPartnerIds.includes(item.uid)) {
+                   setPendingSecretUser(item);
+                   setTempPassword('');
+                   setShowPasswordText(false);
+                   if (auth.secretPassword) setShowSecretLogin(true);
+                   else setShowSecretSetup(true);
+               } else {
+                   navigation.navigate('Chat', { user: item });
+               }
+            } else {
+               handleSendRequest(item);
+            }
           }
         }}
+        onLongPress={() => isFriend && handleUnfriend(item)}
         activeOpacity={0.7}
       >
         <View 
@@ -305,6 +415,11 @@ const ContactsScreen = ({ searchQuery = '' }: { searchQuery?: string }) => {
         <View className="ml-4 flex-1">
           <View className="flex-row items-center">
             <Text className="font-semibold text-base" style={{ color: textColor }}>{item.displayName}</Text>
+            {item.isFromContact && (
+              <View className="ml-2 px-1.5 py-0.5 rounded-md bg-primary/10 border border-primary/20">
+                <Text className="text-[7px] font-black uppercase tracking-tighter" style={{ color: primaryColor }}>Contact</Text>
+              </View>
+            )}
             {showCreateGroup && isFriend && (
               <View className={`ml-2 w-5 h-5 rounded-full items-center justify-center border ${selectedGroupMembers.includes(item.uid) ? 'bg-primary border-primary' : 'border-outline-variant'}`}>
                  {selectedGroupMembers.includes(item.uid) && <Check size={12} color="white" />}
@@ -322,6 +437,14 @@ const ContactsScreen = ({ searchQuery = '' }: { searchQuery?: string }) => {
             className="bg-primary/10 px-4 py-2 rounded-full"
           >
             <Text className="text-primary font-bold text-xs">Add Friend</Text>
+          </TouchableOpacity>
+        )}
+        {wasRequested && !isFriend && (
+          <TouchableOpacity 
+            onPress={() => handleCancelRequest(item)}
+            className="bg-surface-container-highest px-4 py-2 rounded-full"
+          >
+            <Text className="text-onSurface-variant font-bold text-xs">Cancel</Text>
           </TouchableOpacity>
         )}
         {wasRequested && (
@@ -475,6 +598,85 @@ const ContactsScreen = ({ searchQuery = '' }: { searchQuery?: string }) => {
           />
         </View>
       )}
+
+      {/* SETUP SECRET PASSWORD MODAL */}
+      <Modal animationType="fade" transparent={true} visible={showSecretSetup} onRequestClose={() => setShowSecretSetup(false)}>
+          <TouchableOpacity className="flex-1 bg-black/80 items-center justify-center p-6" activeOpacity={1} onPress={() => setShowSecretSetup(false)}>
+              <View className={`rounded-[40px] p-8 w-full ${isTablet ? 'max-w-md' : ''}`} style={{ backgroundColor: isDarkMode ? '#0f111a' : '#FFFFFF' }} onStartShouldSetResponder={() => true} onResponderRelease={(e) => e.stopPropagation()}>
+                  <View className="items-center mb-6">
+                      <View className="w-16 h-16 rounded-full items-center justify-center mb-4 border border-rose-500/20" style={{ backgroundColor: `rgba(244, 63, 94, 0.1)` }}>
+                          <Shield size={32} color="#f43f5e" />
+                      </View>
+                      <Text className="text-2xl font-black tracking-tight" style={{ color: textColor }}>Setup Secret Lock</Text>
+                      <Text className="text-sm mt-2 text-center leading-5" style={{ color: subTextColor }}>Protect your hidden conversations. Set a master password to access this chat.</Text>
+                  </View>
+
+                  <View className="w-full relative justify-center mb-6">
+                      <TextInput
+                          className="w-full py-4 pl-6 pr-14 rounded-2xl text-xl font-bold"
+                          style={{ backgroundColor: surfaceLow, color: textColor }}
+                          placeholder="Create Password"
+                          placeholderTextColor={subTextColor}
+                          secureTextEntry={!showPasswordText}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          value={tempPassword}
+                          onChangeText={setTempPassword}
+                          autoFocus
+                      />
+                      <TouchableOpacity onPress={() => setShowPasswordText(!showPasswordText)} className="absolute right-4 p-2">
+                          {showPasswordText ? <EyeOff size={20} color={subTextColor} /> : <Eye size={20} color={subTextColor} />}
+                      </TouchableOpacity>
+                  </View>
+
+                  <TouchableOpacity onPress={handleSetupSecretPassword} className="w-full py-4 rounded-2xl items-center bg-rose-500 shadow-lg shadow-rose-500/30">
+                      <Text className="text-white font-bold text-base uppercase tracking-widest">Save Password</Text>
+                  </TouchableOpacity>
+              </View>
+          </TouchableOpacity>
+      </Modal>
+
+      {/* LOGIN SECRET PASSWORD MODAL */}
+      <Modal animationType="fade" transparent={true} visible={showSecretLogin} onRequestClose={() => setShowSecretLogin(false)}>
+          <TouchableOpacity className="flex-1 bg-black/90 items-center justify-center p-6" activeOpacity={1} onPress={() => setShowSecretLogin(false)}>
+              <View className={`rounded-[40px] border border-rose-500/20 p-8 w-full ${isTablet ? 'max-w-md' : ''}`} style={{ backgroundColor: isDarkMode ? '#050505' : '#FFFFFF' }} onStartShouldSetResponder={() => true} onResponderRelease={(e) => e.stopPropagation()}>
+                  <View className="items-center mb-6">
+                      <View className="w-16 h-16 rounded-full items-center justify-center mb-4 bg-rose-500/10">
+                          <Lock size={32} color="#f43f5e" />
+                      </View>
+                      <Text className="text-2xl font-black tracking-tight" style={{ color: textColor }}>Secret Chat</Text>
+                      <Text className="text-sm mt-1 text-center" style={{ color: subTextColor }}>Enter your password to unlock.</Text>
+                  </View>
+
+                  <View className="w-full relative justify-center mb-6">
+                      <TextInput
+                          className="w-full py-4 pl-6 pr-14 rounded-2xl text-xl font-bold border border-rose-500/10"
+                          style={{ backgroundColor: isDarkMode ? '#0a0a0a' : '#F5F5F5', color: textColor }}
+                          placeholder="Password"
+                          placeholderTextColor={subTextColor}
+                          secureTextEntry={!showPasswordText}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          value={tempPassword}
+                          onChangeText={setTempPassword}
+                          autoFocus
+                      />
+                      <TouchableOpacity onPress={() => setShowPasswordText(!showPasswordText)} className="absolute right-4 p-2">
+                          {showPasswordText ? <EyeOff size={20} color={subTextColor} /> : <Eye size={20} color={subTextColor} />}
+                      </TouchableOpacity>
+                  </View>
+
+                  <TouchableOpacity onPress={handleVerifySecretPassword} className="w-full py-4 rounded-2xl items-center bg-rose-500 shadow-xl shadow-rose-500/30">
+                      <Text className="text-white font-bold text-base uppercase tracking-widest">Unlock</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity onPress={handleForgotPassword} className="w-full mt-4 items-center">
+                      <Text className="text-sm font-bold" style={{ color: '#f43f5e' }}>Forgot Password?</Text>
+                  </TouchableOpacity>
+              </View>
+          </TouchableOpacity>
+      </Modal>
+
     </View>
   );
 };

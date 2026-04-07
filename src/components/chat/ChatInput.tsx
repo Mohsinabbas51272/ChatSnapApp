@@ -1,8 +1,10 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, TextInput, TouchableOpacity, Text, Platform, Keyboard, FlatList, Alert, StyleSheet } from 'react-native';
-import { Send, Camera, Smile, Mic, Activity } from 'lucide-react-native';
+import { View, TextInput, TouchableOpacity, Text, Platform, Keyboard, FlatList, Alert, StyleSheet, Image as RNImage } from 'react-native';
+import { Send, Camera, Smile, Mic, Activity, Paperclip, Image as ImageIcon, FileText, X } from 'lucide-react-native';
 import { Audio } from 'expo-av';
-import Animated, { SlideInDown, SlideOutDown } from 'react-native-reanimated';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import Animated, { SlideInDown, SlideOutDown, FadeIn, FadeOut } from 'react-native-reanimated';
 import { isLightColor, getContrastText } from '../../services/colors';
 
 const EMOJIS = [
@@ -14,7 +16,7 @@ const EMOJIS = [
 interface ChatInputProps {
   primaryColor: string;
   isDarkMode: boolean;
-  onSend: (type: 'text' | 'voice' | 'snap', mediaUriOrText?: string, duration?: number) => Promise<void>;
+  onSend: (type: 'text' | 'voice' | 'snap' | 'image' | 'document', mediaUriOrText?: string, duration?: number) => Promise<void>;
   onOpenCamera: () => void;
   onTyping: (text: string) => void;
   inputText: string;
@@ -33,16 +35,19 @@ const ChatInput: React.FC<ChatInputProps> = ({
   isSending,
 }) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const recordingRef = useRef<Audio.Recording | null>(null);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [localText, setLocalText] = useState(inputText);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
       setShowEmojiPicker(false);
+      setShowAttachMenu(false);
     });
 
     return () => {
@@ -140,6 +145,11 @@ const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   const handleSendPress = () => {
+    if (previewImage) {
+      onSend('image', previewImage);
+      setPreviewImage(null);
+      return;
+    }
     const trimmed = localText.trim();
     if (trimmed.length > 0 && !isSending) {
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
@@ -148,65 +158,200 @@ const ChatInput: React.FC<ChatInputProps> = ({
     }
   };
 
+  // --- Media Handlers ---
+  const handlePickFromGallery = async () => {
+    setShowAttachMenu(false);
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert("Permission Required", "Gallery access is needed to share photos.");
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.7,
+        allowsEditing: true,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setPreviewImage(result.assets[0].uri);
+      }
+    } catch (e) {
+      console.error('Gallery pick error:', e);
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    setShowAttachMenu(false);
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert("Permission Required", "Camera access is needed to take photos.");
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        quality: 0.7,
+        allowsEditing: true,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setPreviewImage(result.assets[0].uri);
+      }
+    } catch (e) {
+      console.error('Camera error:', e);
+    }
+  };
+
+  const handlePickDocument = async () => {
+    setShowAttachMenu(false);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const doc = result.assets[0];
+        const fileName = doc.name || 'Document';
+        // Send the document name as a text message with the URI
+        onSend('document', doc.uri);
+      }
+    } catch (e) {
+      console.error('Document pick error:', e);
+    }
+  };
+
   const textColor = isDarkMode ? '#FFFFFF' : '#1a1c1e';
   const bgColor = isDarkMode ? '#000000' : '#f0f0fd';
+  const accentColor = isLightColor(primaryColor) && !isDarkMode ? '#000000' : primaryColor;
 
   return (
     <View style={styles.container}>
-      {!isRecording ? (
-        <TouchableOpacity 
-          onPress={onOpenCamera}
-          style={[styles.iconButton, { backgroundColor: isDarkMode ? '#000000' : 'rgba(0,0,0,0.05)' }]}
+      {/* IMAGE PREVIEW */}
+      {previewImage && (
+        <Animated.View 
+          entering={SlideInDown.springify()} 
+          exiting={SlideOutDown}
+          style={[styles.previewContainer, { backgroundColor: isDarkMode ? '#0a0a0a' : '#FFFFFF', borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}
         >
-          <Camera size={22} color={isLightColor(primaryColor) && !isDarkMode ? '#000000' : primaryColor} />
-        </TouchableOpacity>
-      ) : (
-        <View style={styles.iconButton}>
-           <Activity size={20} color={primaryColor} />
+          <RNImage source={{ uri: previewImage }} style={styles.previewImage} resizeMode="cover" />
+          <TouchableOpacity 
+            onPress={() => setPreviewImage(null)} 
+            style={[styles.previewClose, { backgroundColor: 'rgba(0,0,0,0.6)' }]}
+          >
+            <X size={16} color="#FFFFFF" />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            onPress={handleSendPress}
+            disabled={isSending}
+            style={[styles.previewSend, { backgroundColor: primaryColor }]}
+          >
+            <Send size={18} color={getContrastText(primaryColor)} fill={getContrastText(primaryColor)} />
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
+      {/* MAIN INPUT ROW */}
+      {!previewImage && (
+        <View style={styles.inputRow}>
+          {!isRecording ? (
+            <TouchableOpacity 
+              onPress={() => {
+                Keyboard.dismiss();
+                setShowEmojiPicker(false);
+                setShowAttachMenu(!showAttachMenu);
+              }}
+              style={[styles.iconButton, { backgroundColor: isDarkMode ? '#000000' : 'rgba(0,0,0,0.05)' }]}
+            >
+              <Paperclip size={22} color={showAttachMenu ? accentColor : (isDarkMode ? '#737580' : '#555')} />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.iconButton}>
+               <Activity size={20} color={primaryColor} />
+            </View>
+          )}
+
+          <View style={[styles.inputWrapper, { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }]}>
+            <TextInput
+              placeholder={isRecording ? `Recording... ${recordingDuration}s` : "Type a message..."}
+              placeholderTextColor="#737580"
+              multiline
+              value={isRecording ? "" : localText}
+              onChangeText={handleTextChange}
+              onFocus={() => { setShowEmojiPicker(false); setShowAttachMenu(false); }}
+              editable={!isSending && !isRecording}
+              style={[styles.input, { color: textColor, opacity: isRecording ? 0.6 : 1 }]}
+            />
+            <TouchableOpacity 
+              onPress={() => {
+                Keyboard.dismiss();
+                setShowAttachMenu(false);
+                setShowEmojiPicker(!showEmojiPicker);
+              }}
+              style={{ paddingHorizontal: 8 }}
+            >
+               <Smile size={22} color={showEmojiPicker ? accentColor : "#737580"} />
+            </TouchableOpacity>
+          </View>
+
+          {localText.trim().length > 0 ? (
+            <TouchableOpacity 
+              onPress={handleSendPress}
+              disabled={isSending}
+              style={[styles.sendButton, { backgroundColor: isSending ? 'rgba(0,0,0,0.1)' : primaryColor }]}
+            >
+              <Send size={20} color={getContrastText(primaryColor)} fill={getContrastText(primaryColor)} />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity 
+                onLongPress={startRecording}
+                onPressOut={stopRecording}
+                style={[styles.sendButton, { backgroundColor: isRecording ? '#ff6e85' : (isDarkMode ? '#000000' : 'rgba(0,0,0,0.05)') }]}
+                activeOpacity={0.7}
+            >
+              <Mic size={22} color={isRecording ? 'white' : accentColor} />
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
-      <View style={[styles.inputWrapper, { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }]}>
-        <TextInput
-          placeholder={isRecording ? `Recording... ${recordingDuration}s` : "Type a message..."}
-          placeholderTextColor="#737580"
-          multiline
-          value={isRecording ? "" : localText}
-          onChangeText={handleTextChange}
-          onFocus={() => setShowEmojiPicker(false)}
-          editable={!isSending && !isRecording}
-          style={[styles.input, { color: textColor, opacity: isRecording ? 0.6 : 1 }]}
-        />
-        <TouchableOpacity 
-          onPress={() => {
-            Keyboard.dismiss();
-            setShowEmojiPicker(!showEmojiPicker);
-          }}
-          style={{ paddingHorizontal: 8 }}
+      {/* ATTACHMENTS MENU */}
+      {showAttachMenu && (
+        <Animated.View 
+          entering={SlideInDown.springify().damping(18)} 
+          exiting={SlideOutDown.duration(200)}
+          style={[styles.attachMenu, { backgroundColor: isDarkMode ? '#0a0a0a' : '#FFFFFF' }]}
         >
-           <Smile size={22} color={showEmojiPicker ? (isLightColor(primaryColor) && !isDarkMode ? '#000000' : primaryColor) : "#737580"} />
-        </TouchableOpacity>
-      </View>
+          <View style={styles.attachRow}>
+            <TouchableOpacity onPress={handlePickFromGallery} style={styles.attachItem}>
+              <View style={[styles.attachIcon, { backgroundColor: '#6C63FF20' }]}>  
+                <ImageIcon size={24} color="#6C63FF" />
+              </View>
+              <Text style={[styles.attachLabel, { color: textColor }]}>Gallery</Text>
+            </TouchableOpacity>
 
-      {localText.trim().length > 0 ? (
-        <TouchableOpacity 
-          onPress={handleSendPress}
-          disabled={isSending}
-          style={[styles.sendButton, { backgroundColor: isSending ? 'rgba(0,0,0,0.1)' : primaryColor }]}
-        >
-          <Send size={20} color={getContrastText(primaryColor)} fill={getContrastText(primaryColor)} />
-        </TouchableOpacity>
-      ) : (
-        <TouchableOpacity 
-            onLongPress={startRecording}
-            onPressOut={stopRecording}
-            style={[styles.sendButton, { backgroundColor: isRecording ? '#ff6e85' : (isDarkMode ? '#000000' : 'rgba(0,0,0,0.05)') }]}
-            activeOpacity={0.7}
-        >
-          <Mic size={22} color={isRecording ? 'white' : (isLightColor(primaryColor) && !isDarkMode ? '#000000' : primaryColor)} />
-        </TouchableOpacity>
+            <TouchableOpacity onPress={handleTakePhoto} style={styles.attachItem}>
+              <View style={[styles.attachIcon, { backgroundColor: '#FF636320' }]}>
+                <Camera size={24} color="#FF6363" />
+              </View>
+              <Text style={[styles.attachLabel, { color: textColor }]}>Camera</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={handlePickDocument} style={styles.attachItem}>
+              <View style={[styles.attachIcon, { backgroundColor: '#4CAF5020' }]}>
+                <FileText size={24} color="#4CAF50" />
+              </View>
+              <Text style={[styles.attachLabel, { color: textColor }]}>Document</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={onOpenCamera} style={styles.attachItem}>
+              <View style={[styles.attachIcon, { backgroundColor: '#FF980020' }]}>
+                <Camera size={24} color="#FF9800" />
+              </View>
+              <Text style={[styles.attachLabel, { color: textColor }]}>Snap</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
       )}
 
+      {/* EMOJI PICKER */}
       {showEmojiPicker && (
         <Animated.View 
           entering={SlideInDown} 
@@ -216,7 +361,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
           <View style={styles.emojiHeader}>
             <Text style={{ color: isDarkMode ? '#FFFFFF' : '#1a1c1e', fontWeight: '900', fontSize: 12 }}>EMOJIS</Text>
              <TouchableOpacity onPress={() => setShowEmojiPicker(false)}>
-              <Text style={{ color: isLightColor(primaryColor) && !isDarkMode ? '#000000' : primaryColor, fontWeight: 'bold' }}>Done</Text>
+              <Text style={{ color: accentColor, fontWeight: 'bold' }}>Done</Text>
             </TouchableOpacity>
           </View>
           <FlatList
@@ -241,6 +386,9 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
 const styles = StyleSheet.create({
   container: {
+    // Outer wrapper
+  },
+  inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -278,6 +426,82 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: 8,
   },
+  // Attach Menu
+  attachMenu: {
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 28,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  attachRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  attachItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attachIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  attachLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  // Preview
+  previewContainer: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 1,
+    position: 'relative',
+  },
+  previewImage: {
+    width: '100%',
+    height: 250,
+    borderRadius: 24,
+  },
+  previewClose: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewSend: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  // Emoji
   emojiPicker: {
     position: 'absolute',
     bottom: 80,

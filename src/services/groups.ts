@@ -56,6 +56,13 @@ export const subscribeToGroups = (userId: string, callback: (groups: Group[]) =>
   });
 };
 
+// Delete a group message
+export const deleteGroupMessage = async (messageId: string) => {
+  if (!messageId) return;
+  const messageRef = doc(db, 'groupMessages', messageId);
+  await deleteDoc(messageRef);
+};
+
 // Send a message to a group
 export const sendGroupMessage = async (groupId: string, text: string, senderName: string, type: 'text' | 'image' | 'snap' | 'voice' = 'text') => {
   const currentUser = auth.currentUser;

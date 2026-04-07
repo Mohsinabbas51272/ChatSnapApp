@@ -24,7 +24,7 @@ export interface Message {
   senderId: string;
   receiverId: string;
   text: string;
-  type: 'text' | 'image' | 'snap' | 'voice';
+  type: 'text' | 'image' | 'snap' | 'voice' | 'document';
   timestamp: any;
   viewed: boolean;
   received?: boolean;
@@ -72,7 +72,7 @@ export const sendMessage = async (
   senderId: string, 
   receiverId: string, 
   text: string, 
-  type: 'text' | 'image' | 'snap' | 'voice' = 'text', 
+  type: 'text' | 'image' | 'snap' | 'voice' | 'document' = 'text', 
   timer?: number,
   duration?: number,
   filter?: string,
@@ -364,7 +364,10 @@ export const subscribeToSecretConversations = (userId: string, callback: (secret
   return onSnapshot(q, (snapshot) => {
     const ids: string[] = [];
     snapshot.forEach(doc => {
-      ids.push(doc.data().partnerId);
+      const data = doc.data();
+      if (data.isSecret !== false) {
+          ids.push(data.partnerId);
+      }
     });
     callback(ids);
   }, (error) => {

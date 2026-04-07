@@ -9,6 +9,10 @@ import Header from '../components/ui/Header';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
+import { collection, query, where, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { auth, db } from '../services/firebaseConfig';
+import { setUser } from '../store/authSlice';
 
 import ScreenBackground from '../components/ui/ScreenBackground';
 
@@ -18,18 +22,68 @@ const LoginScreen = ({ navigation }: any) => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const dispatch = useDispatch();
 
-  const handleSendOTP = () => {
+  const handleLogin = async () => {
     if (phoneNumber.length < 10) {
       setError('Please enter a valid phone number');
       return;
     }
 
     setLoading(true);
-    setTimeout(() => {
+    setError('');
+    
+    try {
+      // 1. Check if user exists
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('phoneNumber', '==', phoneNumber));
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        setError('No account found! Please sign up first.');
+        setLoading(false);
+        return;
+      }
+
+      // Existing user found! Log them in instantly
+      const plainPhone = phoneNumber.replace(/\D/g, '');
+      const syntheticEmail = `${plainPhone}@chatsnap.local`;
+      const syntheticPassword = `AppSec#${plainPhone}!`;
+
+      let userCredential;
+      try {
+        userCredential = await signInWithEmailAndPassword(auth, syntheticEmail, syntheticPassword);
+      } catch (e: any) {
+        if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential' || e.code === 'auth/invalid-login-credentials') {
+           // Edge case: Firestore doc exists, but Auth user missing? Recreate them.
+           userCredential = await createUserWithEmailAndPassword(auth, syntheticEmail, syntheticPassword);
+        } else {
+           throw e;
+        }
+      }
+
+      const authUid = userCredential.user.uid;
+      const userDocRef = doc(db, 'users', authUid);
+      const userDocSnap = await getDoc(userDocRef);
+
+      let finalUser: any = null;
+      if (userDocSnap.exists()) {
+          finalUser = { ...userDocSnap.data(), uid: authUid, lastLogin: new Date().toISOString(), status: 'online' };
+      } else {
+          // Fallback if looking up by doc fails but snapshot exists
+          const existingDoc = querySnapshot.docs[0];
+          finalUser = { ...existingDoc.data(), uid: authUid, lastLogin: new Date().toISOString(), status: 'online' };
+      }
+
+      await setDoc(userDocRef, finalUser, { merge: true });
+      dispatch(setUser(finalUser));
+
+    } catch (err: any) {
+      console.error('Fast Login Error:', err);
+      setError('Login failed. Please try again.');
+    } finally {
       setLoading(false);
-      navigation.navigate('OTP', { phoneNumber, isNewUser: false, displayName: '' });
-    }, 1000);
+    }
   };
 
   return (
@@ -84,7 +138,7 @@ const LoginScreen = ({ navigation }: any) => {
               />
 
               <TouchableOpacity 
-                  onPress={handleSendOTP}
+                  onPress={handleLogin}
                   disabled={phoneNumber.length < 10 || loading}
                   className="w-full py-4 rounded-2xl items-center mt-6"
                   style={{ 
@@ -98,7 +152,7 @@ const LoginScreen = ({ navigation }: any) => {
                   }}
               >
                   <Text style={{ color: phoneNumber.length >= 10 ? 'white' : '#999' }} className="text-lg font-black">
-                      {loading ? 'Sending Code...' : 'Send OTP'}
+                      {loading ? 'Authenticating...' : 'Login instantly'}
                   </Text>
               </TouchableOpacity>
 

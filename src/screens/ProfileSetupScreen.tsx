@@ -76,7 +76,7 @@ const ProfileSetupScreen = () => {
 
         // We must manually navigate to Home as React Navigation won't 
         // force a transition just because the screen order changed.
-        navigation.replace('Home');
+        navigation.replace('FindFriends');
       } catch (error: any) {
         console.error('Initial setup error:', error);
         alert('Setup failed: ' + error.message);

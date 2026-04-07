@@ -1,10 +1,10 @@
 import React, { memo, useCallback } from 'react';
-import { View, Text, TouchableOpacity, Image, ScrollView, StatusBar, Modal, Switch } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ScrollView, StatusBar, Modal, Switch, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../store/authSlice';
 import { RootState } from '../store';
-import { User, LogOut, ChevronRight, Bell, Shield, HelpCircle, UserRound, Palette, Sparkles, Smile, Coffee, Heart, Zap, Moon, Edit3, Camera as CameraIcon, Sun } from 'lucide-react-native';
+import { User, LogOut, ChevronRight, Bell, Shield, HelpCircle, UserRound, Palette, Sparkles, Smile, Coffee, Heart, Zap, Moon, Edit3, Camera as CameraIcon, Sun, Eye, EyeOff } from 'lucide-react-native';
 import Header from '../components/ui/Header';
 import { useNavigation } from '@react-navigation/native';
 import { setTheme, setMood, toggleDarkMode } from '../store/themeSlice';
@@ -73,6 +73,41 @@ const SettingsScreen = () => {
     const [showQR, setShowQR] = React.useState(false);
     const [notificationsEnabled, setNotificationsEnabled] = React.useState(true);
     const [ghostMode, setGhostMode] = React.useState(false);
+    
+    // Admin Panel State
+    const [showAdminAuth, setShowAdminAuth] = React.useState(false);
+    const [adminPassword, setAdminPassword] = React.useState('');
+    const [showAdminPassword, setShowAdminPassword] = React.useState(false);
+    const lastTapRef = React.useRef(0);
+    const tapCountRef = React.useRef(0);
+
+    const handlePrivacyTap = () => {
+        const now = Date.now();
+        const MULTI_PRESS_DELAY = 500; // Time window between each rapid tap
+
+        if (now - lastTapRef.current < MULTI_PRESS_DELAY) {
+            tapCountRef.current += 1;
+            if (tapCountRef.current >= 5) { // 5 taps threshold reached
+                setShowAdminAuth(true);
+                tapCountRef.current = 0; // Reset after triggering
+            }
+        } else {
+            // Too slow, reset the counter to 1
+            tapCountRef.current = 1;
+        }
+        
+        lastTapRef.current = now;
+    };
+
+    const verifyAdmin = () => {
+        if (adminPassword === 'MohsinAbbas.9925') {
+            setShowAdminAuth(false);
+            setAdminPassword('');
+            navigation.navigate('AdminPanel');
+        } else {
+            alert('Incorrect Admin Password');
+        }
+    };
 
     React.useEffect(() => {
         if (!user.uid) return;
@@ -194,13 +229,18 @@ const SettingsScreen = () => {
 
                 {/* Bento Cards */}
                 <View className="flex-row mb-6">
-                    <View className="flex-1 rounded-xl p-6 h-40 justify-between mr-2" style={{ backgroundColor: surfaceLow }}>
+                    <TouchableOpacity 
+                        activeOpacity={0.9}
+                        onPress={handlePrivacyTap}
+                        className="flex-1 rounded-xl p-6 h-40 justify-between mr-2" 
+                        style={{ backgroundColor: surfaceLow }}
+                    >
                         <Text className="text-sm uppercase tracking-widest" style={{ color: primaryColor }}>Privacy Score</Text>
                         <View>
                             <Text className="text-4xl font-black tracking-tighter" style={{ color: textColor }}>98%</Text>
                             <Text className="text-xs mt-1" style={{ color: subTextColor }}>Highly Secured</Text>
                         </View>
-                    </View>
+                    </TouchableOpacity>
                     <View className="flex-1 rounded-xl p-6 h-40 justify-between ml-2"
                           style={{ 
                             backgroundColor: isDarkMode ? '#000000' : '#4963ff',
@@ -420,6 +460,67 @@ const SettingsScreen = () => {
                                     <Copy size={18} color={primaryColor} />
                                 </TouchableOpacity>
                             </View>
+                        </View>
+                    </TouchableOpacity>
+                </Modal>
+
+                {/* Admin Auth Modal */}
+                <Modal
+                    animationType="fade"
+                    transparent={true}
+                    visible={showAdminAuth}
+                    onRequestClose={() => setShowAdminAuth(false)}
+                >
+                    <TouchableOpacity 
+                        className="flex-1 bg-black/80 items-center justify-center p-6"
+                        activeOpacity={1}
+                        onPress={() => setShowAdminAuth(false)}
+                    >
+                        <View className={`rounded-[40px] p-8 w-full ${isTablet ? 'max-w-md' : ''}`}
+                              style={{ backgroundColor: isDarkMode ? '#0f111a' : '#FFFFFF' }}
+                              onStartShouldSetResponder={() => true}
+                              onResponderRelease={(e) => e.stopPropagation()}
+                        >
+                            <View className="items-center mb-6">
+                                <View className="w-16 h-16 rounded-full items-center justify-center mb-4" style={{ backgroundColor: `${primaryColor}15` }}>
+                                    <Shield size={32} color={primaryColor} />
+                                </View>
+                                <Text className="text-2xl font-black tracking-tight" style={{ color: textColor }}>Admin Access</Text>
+                                <Text className="text-sm mt-1 text-center" style={{ color: subTextColor }}>Enter the master password to view the user database.</Text>
+                            </View>
+
+                            <View className="w-full relative justify-center mb-6">
+                                <TextInput
+                                    className="w-full py-4 pl-6 pr-14 rounded-2xl text-xl font-bold"
+                                    style={{ backgroundColor: surfaceLow, color: textColor }}
+                                    placeholder="Admin Password"
+                                    placeholderTextColor={subTextColor}
+                                    secureTextEntry={!showAdminPassword}
+                                    autoCapitalize="none"
+                                    autoCorrect={false}
+                                    value={adminPassword}
+                                    onChangeText={setAdminPassword}
+                                    autoFocus
+                                />
+                                <TouchableOpacity 
+                                    onPress={() => setShowAdminPassword(!showAdminPassword)}
+                                    className="absolute right-4 p-2"
+                                >
+                                    {showAdminPassword ? (
+                                        <EyeOff size={20} color={subTextColor} />
+                                    ) : (
+                                        <Eye size={20} color={subTextColor} />
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+
+                            <TouchableOpacity 
+                                onPress={verifyAdmin}
+                                className="w-full py-4 rounded-2xl items-center"
+                                style={{ backgroundColor: primaryColor }}
+                            >
+                                <Text className="text-white font-bold text-lg uppercase tracking-widest">Verify & Enter</Text>
+                            </TouchableOpacity>
                         </View>
                     </TouchableOpacity>
                 </Modal>
