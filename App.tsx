@@ -31,6 +31,7 @@ import RegisterScreen from './src/screens/RegisterScreen';
 import SplashScreen from './src/screens/SplashScreen';
 import FindFriendsScreen from './src/screens/FindFriendsScreen';
 import AdminPanelScreen from './src/screens/AdminPanelScreen';
+import WalletScreen from './src/screens/WalletScreen';
 import { RootStackParamList } from './src/types/navigation';
 
 LogBox.ignoreLogs(['expo-notifications: Android Push notifications', 'Non-serializable values']);
@@ -165,6 +166,7 @@ const RootApp = () => {
                         <Stack.Screen name="QRProfile" component={QRProfileScreen} />
                         <Stack.Screen name="QRScanner" component={QRScannerScreen} />
                         <Stack.Screen name="AdminPanel" component={AdminPanelScreen} />
+                        <Stack.Screen name="Wallet" component={WalletScreen} />
                     </>
                 )}
             </Stack.Navigator>

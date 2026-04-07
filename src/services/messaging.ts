@@ -24,7 +24,9 @@ export interface Message {
   senderId: string;
   receiverId: string;
   text: string;
-  type: 'text' | 'image' | 'snap' | 'voice' | 'document';
+  type: 'text' | 'image' | 'snap' | 'voice' | 'document' | 'location' | 'poll';
+  location?: { latitude: number; longitude: number };
+  poll?: { question: string; options: string[]; votes: { [uid: string]: number } };
   timestamp: any;
   viewed: boolean;
   received?: boolean;
@@ -72,11 +74,12 @@ export const sendMessage = async (
   senderId: string, 
   receiverId: string, 
   text: string, 
-  type: 'text' | 'image' | 'snap' | 'voice' | 'document' = 'text', 
+  type: 'text' | 'image' | 'snap' | 'voice' | 'document' | 'location' | 'poll' = 'text', 
   timer?: number,
   duration?: number,
   filter?: string,
-  storyReply?: Message['storyReply']
+  storyReply?: Message['storyReply'],
+  locationAndPoll?: any
 ) => {
   console.log('[DEBUG] sendMessage entered with senderId:', senderId, 'receiverId:', receiverId, 'type:', type);
   try {
@@ -111,6 +114,8 @@ export const sendMessage = async (
     if (duration) messageData.duration = duration;
     if (filter) messageData.filter = filter;
     if (storyReply) messageData.storyReply = storyReply;
+    if (type === 'location') messageData.location = locationAndPoll;
+    if (type === 'poll') messageData.poll = { ...locationAndPoll, votes: {} };
 
     console.log('[DEBUG] Payload prepared for addDoc, attempting to insert');
     await addDoc(messagesRef, messageData);
@@ -382,4 +387,33 @@ export const deleteMessage = async (messageId: string) => {
   } catch (error) {
     console.error('Failed to delete message:', error);
   }
+};
+
+// Mood Status logic
+export const setUserMood = async (userId: string, mood: string, emoji: string) => {
+  const userRef = doc(db, 'users', userId);
+  const expiry = new Date();
+  expiry.setHours(expiry.getHours() + 2); // 2 hour duration
+  
+  await updateDoc(userRef, {
+    moodStatus: {
+      text: mood,
+      emoji: emoji,
+      expiresAt: expiry
+    }
+  });
+};
+
+export const clearUserMood = async (userId: string) => {
+  const userRef = doc(db, 'users', userId);
+  await updateDoc(userRef, {
+    moodStatus: deleteField()
+  });
+};
+
+export const voteInPoll = async (messageId: string, optionIndex: number, userId: string) => {
+  const msgRef = doc(db, 'messages', messageId);
+  await updateDoc(msgRef, {
+    [`poll.votes.${userId}`]: optionIndex
+  });
 };

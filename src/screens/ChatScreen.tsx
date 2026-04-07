@@ -24,9 +24,10 @@ import {
   subscribeToTypingStatus,
   markAsReceived,
   toggleSecretChat,
-  subscribeToSecretConversations
+  subscribeToSecretConversations,
+  voteInPoll
 } from '../services/messaging';
-import { subscribeToGroupMessages, sendGroupMessage, deleteGroupMessage } from '../services/groups';
+import { subscribeToGroupMessages, sendGroupMessage, deleteGroupMessage, voteInGroupPoll } from '../services/groups';
 import { blockUser, unblockUser, subscribeToBlockedUsers, subscribeToWhoBlockedMe } from '../services/social';
 
 import ChatHeader from '../components/chat/ChatHeader';
@@ -36,6 +37,7 @@ import SnapCameraScreen from '../components/SnapCameraScreen';
 import SnapViewer from '../components/SnapViewer';
 import SmartReplies from '../components/SmartReplies';
 import ScreenBackground from '../components/ui/ScreenBackground';
+import MediaViewerModal from '../components/chat/MediaViewerModal';
 
 const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
   const { isTablet, getResponsiveContainerStyle } = useResponsive();
@@ -53,6 +55,7 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
   const [isSending, setIsSending] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [activeSnap, setActiveSnap] = useState<{ uri: string; duration: number; id: string; filter: string } | null>(null);
+  const [selectedMediaItem, setSelectedMediaItem] = useState<Message | null>(null);
   const [reactionMessageId, setReactionMessageId] = useState<string | null>(null);
   
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -160,7 +163,7 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
     });
     // Mark viewed
     messages.forEach(async (msg) => {
-      if (!isGroup && msg.senderId === chatPartner?.uid && !msg.viewed && msg.id && (msg.type === 'text' || msg.type === 'voice')) {
+      if (!isGroup && msg.senderId === chatPartner?.uid && !msg.viewed && msg.id) {
         await markAsViewed(msg.id);
       }
     });
@@ -232,7 +235,13 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
     }
   }, [currentUser?.uid, chatPartner?.uid, isGroup]);
 
-  const handleSend = useCallback(async (type: 'text' | 'snap' | 'voice' = 'text', mediaUriOrText?: string, duration?: number, filter: string = 'none') => {
+  const handleSend = useCallback(async (
+    type: 'text' | 'snap' | 'voice' | 'image' | 'document' | 'location' | 'poll' = 'text', 
+    mediaUriOrText?: string, 
+    duration?: number, 
+    extras?: any
+  ) => {
+    const filter = extras?.filter || 'none';
     if (!currentUser.uid) { return Alert.alert("Masla Hua", "Dubara login karein."); }
     if (!isGroup && !chatPartner?.uid) { return Alert.alert("Masla Hua", "Recipient nahi mila."); }
     
@@ -247,9 +256,25 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
 
     try {
       if (isGroup) {
-        await sendGroupMessage(group.id, textToSend, currentUser.displayName || 'Anonymous', type);
+        await sendGroupMessage(
+          group.id, 
+          textToSend, 
+          currentUser.displayName || 'Anonymous', 
+          type,
+          type === 'poll' ? extras : undefined
+        );
       } else {
-        await sendMessage(currentUser.uid, chatPartner.uid, textToSend, type, type === 'snap' ? duration : undefined, type === 'voice' ? duration : undefined, type === 'snap' ? filter : undefined);
+        await sendMessage(
+          currentUser.uid, 
+          chatPartner.uid, 
+          textToSend, 
+          type, 
+          type === 'snap' ? duration : undefined, 
+          type === 'voice' ? duration : undefined, 
+          type === 'snap' ? filter : undefined,
+          undefined, // storyReply
+          type === 'location' ? extras : (type === 'poll' ? extras : undefined)
+        );
       }
       
       setTimeout(() => {
@@ -318,26 +343,34 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
                 item={item}
                 isMe={item.senderId === currentUser.uid}
                 chatPartner={chatPartner}
-                onOpenSnap={(msg) => {
+                onOpenSnap={(msg: Message) => {
                   if (!msg.viewed && msg.senderId !== currentUser.uid) {
                     setActiveSnap({ uri: msg.text, duration: msg.timer || 5, id: msg.id!, filter: msg.filter || 'none' });
                   }
                 }}
-                onLongPress={(id) => setReactionMessageId(id)}
+                onPressMedia={(m: Message) => setSelectedMediaItem(m)}
+                onLongPress={(id: string) => setReactionMessageId(id)}
                 reactionMessageId={reactionMessageId}
-                handleReaction={(msgId, emoji, react) => {
+                handleReaction={(msgId: string, emoji: string, react: any) => {
                   if (currentUser.uid) {
                     addReaction(msgId, emoji, currentUser.uid, react);
                     setReactionMessageId(null);
                   }
                 }}
-                handleDeleteMessage={(id) => { 
+                handleDeleteMessage={(id: string) => { 
                    isGroup ? deleteGroupMessage(id) : deleteMessage(id); 
                    setReactionMessageId(null); 
                 }}
                 primaryColor={primaryColor}
                 isGroup={isGroup}
                 isDarkMode={isDarkMode}
+                onVote={(msgId, optIdx) => {
+                  if (isGroup) {
+                    voteInGroupPoll(msgId, optIdx, currentUser.uid!);
+                  } else {
+                    voteInPoll(msgId, optIdx, currentUser.uid!);
+                  }
+                }}
               />
             )}
             className="flex-1 px-4 pt-6"
@@ -434,6 +467,13 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
           onInterrupted={() => setActiveSnap(null)}
         />
       )}
+
+      <MediaViewerModal 
+        isVisible={!!selectedMediaItem} 
+        item={selectedMediaItem} 
+        onClose={() => setSelectedMediaItem(null)} 
+        primaryColor={primaryColor} 
+      />
     </ScreenBackground>
   );
 };

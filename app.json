@@ -13,7 +13,10 @@
       "backgroundColor": "#FFFFFF"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Allow ChatSnap to use your location to share with friends in chat."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -22,7 +25,11 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.mohsin.x1234.ChatSnap",
-      "softwareKeyboardLayoutMode": "resize"
+      "softwareKeyboardLayoutMode": "resize",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -34,7 +41,8 @@
       "expo-contacts",
       "expo-image-picker",
       "expo-notifications",
-      "expo-barcode-scanner"
+      "expo-barcode-scanner",
+      "expo-location"
     ]
   }
 }

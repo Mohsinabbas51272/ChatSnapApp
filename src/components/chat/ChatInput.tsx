@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { View, TextInput, TouchableOpacity, Text, Platform, Keyboard, FlatList, Alert, StyleSheet, Image as RNImage } from 'react-native';
-import { Send, Camera, Smile, Mic, Activity, Paperclip, Image as ImageIcon, FileText, X } from 'lucide-react-native';
+import { View, TextInput, TouchableOpacity, Text, Platform, Keyboard, FlatList, Alert, StyleSheet, Image as RNImage, Modal, ScrollView } from 'react-native';
+import { Send, Camera, Smile, Mic, Activity, Paperclip, Image as ImageIcon, FileText, X, MapPin, BarChart3, Plus, Trash2 } from 'lucide-react-native';
 import { Audio } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import * as Location from 'expo-location';
 import Animated, { SlideInDown, SlideOutDown, FadeIn, FadeOut } from 'react-native-reanimated';
 import { isLightColor, getContrastText } from '../../services/colors';
 
@@ -16,7 +17,7 @@ const EMOJIS = [
 interface ChatInputProps {
   primaryColor: string;
   isDarkMode: boolean;
-  onSend: (type: 'text' | 'voice' | 'snap' | 'image' | 'document', mediaUriOrText?: string, duration?: number) => Promise<void>;
+  onSend: (type: 'text' | 'voice' | 'snap' | 'image' | 'document' | 'location' | 'poll', mediaUriOrText?: string, duration?: number, extras?: any) => Promise<void>;
   onOpenCamera: () => void;
   onTyping: (text: string) => void;
   inputText: string;
@@ -43,6 +44,11 @@ const ChatInput: React.FC<ChatInputProps> = ({
   const [localText, setLocalText] = useState(inputText);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  
+  // Poll State
+  const [showPollModal, setShowPollModal] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptions, setPollOptions] = useState(['Yes', 'No']);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
@@ -144,6 +150,17 @@ const ChatInput: React.FC<ChatInputProps> = ({
     syncToParent(text);
   };
 
+  const handleCreatePollMessage = () => {
+     if (!pollQuestion.trim()) return Alert.alert("Error", "Please enter a question.");
+     const validOptions = pollOptions.map(o => o.trim()).filter(o => o.length > 0);
+     if (validOptions.length < 2) return Alert.alert("Error", "Please provide at least 2 options.");
+     
+     onSend('poll', pollQuestion, undefined, { question: pollQuestion, options: validOptions });
+     setShowPollModal(false);
+     setPollQuestion('');
+     setPollOptions(['Yes', 'No']);
+  };
+
   const handleSendPress = () => {
     if (previewImage) {
       onSend('image', previewImage);
@@ -208,14 +225,35 @@ const ChatInput: React.FC<ChatInputProps> = ({
         copyToCacheDirectory: true,
       });
       if (!result.canceled && result.assets && result.assets[0]) {
-        const doc = result.assets[0];
-        const fileName = doc.name || 'Document';
-        // Send the document name as a text message with the URI
-        onSend('document', doc.uri);
+        const docRes = result.assets[0];
+        onSend('document', docRes.uri);
       }
     } catch (e) {
-      console.error('Document pick error:', e);
+      console.error('Document error:', e);
     }
+  };
+
+  const handleShareLocation = async () => {
+    setShowAttachMenu(false);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert("Permission Required", "Location permission is needed to share your position.");
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      onSend('location', 'Shared Location', undefined, { 
+        latitude: loc.coords.latitude, 
+        longitude: loc.coords.longitude 
+      });
+    } catch (e) {
+      Alert.alert("Error", "Could not get your location. Please check if your GPS is turned on.");
+    }
+  };
+
+  const handleCreatePoll = () => {
+    setShowAttachMenu(false);
+    setShowPollModal(true);
   };
 
   const textColor = isDarkMode ? '#FFFFFF' : '#1a1c1e';
@@ -319,7 +357,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
           exiting={SlideOutDown.duration(200)}
           style={[styles.attachMenu, { backgroundColor: isDarkMode ? '#0a0a0a' : '#FFFFFF' }]}
         >
-          <View style={styles.attachRow}>
+          <View style={[styles.attachRow, { marginBottom: 16 }]}>
             <TouchableOpacity onPress={handlePickFromGallery} style={styles.attachItem}>
               <View style={[styles.attachIcon, { backgroundColor: '#6C63FF20' }]}>  
                 <ImageIcon size={24} color="#6C63FF" />
@@ -340,16 +378,107 @@ const ChatInput: React.FC<ChatInputProps> = ({
               </View>
               <Text style={[styles.attachLabel, { color: textColor }]}>Document</Text>
             </TouchableOpacity>
+          </View>
 
+          <View style={styles.attachRow}>
             <TouchableOpacity onPress={onOpenCamera} style={styles.attachItem}>
               <View style={[styles.attachIcon, { backgroundColor: '#FF980020' }]}>
                 <Camera size={24} color="#FF9800" />
               </View>
               <Text style={[styles.attachLabel, { color: textColor }]}>Snap</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity onPress={handleShareLocation} style={styles.attachItem}>
+              <View style={[styles.attachIcon, { backgroundColor: '#007AFF20' }]}>
+                <MapPin size={24} color="#007AFF" />
+              </View>
+              <Text style={[styles.attachLabel, { color: textColor }]}>Location</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={handleCreatePoll} style={styles.attachItem}>
+              <View style={[styles.attachIcon, { backgroundColor: '#E91E6320' }]}>
+                <BarChart3 size={24} color="#E91E63" />
+              </View>
+              <Text style={[styles.attachLabel, { color: textColor }]}>Poll</Text>
+            </TouchableOpacity>
           </View>
         </Animated.View>
       )}
+
+      {/* POLL MODAL */}
+      <Modal visible={showPollModal} transparent animationType="fade">
+        <View className="flex-1 bg-black/80 items-center justify-center p-6">
+           <Animated.View 
+            entering={FadeIn}
+            exiting={FadeOut}
+            className="w-full rounded-[36px] p-6" 
+            style={{ backgroundColor: isDarkMode ? '#0a0a0a' : '#FFFFFF' }}
+           >
+              <View className="flex-row items-center justify-between mb-6">
+                <Text className="text-xl font-black uppercase tracking-widest" style={{ color: textColor }}>Create Poll</Text>
+                <TouchableOpacity onPress={() => setShowPollModal(false)} className="p-2">
+                  <X size={24} color={textColor} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} className="max-h-[70%]">
+                <Text className="text-[10px] font-black uppercase mb-2 opacity-50 ml-1" style={{ color: textColor }}>Question</Text>
+                <TextInput
+                  placeholder="Ask something..."
+                  placeholderTextColor="#737580"
+                  value={pollQuestion}
+                  onChangeText={setPollQuestion}
+                  className="w-full py-4 px-6 rounded-2xl mb-6 text-lg font-bold"
+                  style={{ backgroundColor: isDarkMode ? '#000' : '#f5f5f5', color: textColor }}
+                />
+
+                <Text className="text-[10px] font-black uppercase mb-2 opacity-50 ml-1" style={{ color: textColor }}>Options</Text>
+                {pollOptions.map((opt, idx) => (
+                  <View key={idx} className="flex-row items-center mb-3">
+                    <TextInput
+                      placeholder={`Option ${idx + 1}`}
+                      placeholderTextColor="#737580"
+                      value={opt}
+                      onChangeText={(txt) => {
+                        const newOpts = [...pollOptions];
+                        newOpts[idx] = txt;
+                        setPollOptions(newOpts);
+                      }}
+                      className="flex-1 py-3 px-5 rounded-xl font-bold"
+                      style={{ backgroundColor: isDarkMode ? '#000' : '#f5f5f5', color: textColor }}
+                    />
+                    {pollOptions.length > 2 && (
+                      <TouchableOpacity 
+                        onPress={() => setPollOptions(pollOptions.filter((_, i) => i !== idx))}
+                        className="ml-2 p-2"
+                      >
+                        <Trash2 size={18} color="#ff4d4d" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))}
+
+                {pollOptions.length < 5 && (
+                  <TouchableOpacity 
+                    onPress={() => setPollOptions([...pollOptions, ''])}
+                    className="flex-row items-center mt-2 py-3 px-4 rounded-xl border border-dashed border-outline-variant/30"
+                  >
+                    <Plus size={18} color={primaryColor} />
+                    <Text className="ml-2 font-black uppercase text-[11px] tracking-widest" style={{ color: primaryColor }}>Add Option</Text>
+                  </TouchableOpacity>
+                )}
+              </ScrollView>
+
+              <TouchableOpacity 
+                onPress={handleCreatePollMessage}
+                className="w-full py-4 rounded-2xl items-center mt-8"
+                style={{ backgroundColor: primaryColor }}
+              >
+                <Text className="text-white font-black uppercase tracking-[2px]">Launch Poll</Text>
+              </TouchableOpacity>
+           </Animated.View>
+        </View>
+      </Modal>
 
       {/* EMOJI PICKER */}
       {showEmojiPicker && (

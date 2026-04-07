@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Image, ActivityIndicator, StatusBar, Platform, Modal, TextInput, Alert } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, Image, ActivityIndicator, StatusBar, Platform, Modal, TextInput, Alert, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
-import { MessageSquare, Camera, Lock, MessageCircle, Shield, Eye, EyeOff } from 'lucide-react-native';
+import { MessageSquare, Camera, Lock, MessageCircle, Shield, Eye, EyeOff, Plus, Smile, Users } from 'lucide-react-native';
+import ShimmerPlaceholder from './ui/ShimmerPlaceholder';
 import { subscribeToConversations, subscribeToSecretConversations } from '../services/messaging';
 import {
   collection, addDoc, query, where, onSnapshot, serverTimestamp,
@@ -12,7 +13,7 @@ import {
 import { db } from '../services/firebaseConfig';
 import Header from './ui/Header';
 import { subscribeToGroupConversations } from '../services/groups';
-import { Users, Info } from 'lucide-react-native';
+import { Info } from 'lucide-react-native';
 import { useResponsive } from '../hooks/useResponsive';
 import { isLightColor, getContrastText } from '../services/colors';
 
@@ -23,11 +24,16 @@ interface Conversation {
     displayName: string;
     photoURL?: string;
     status?: 'online' | 'offline';
+    moodStatus?: {
+      text: string;
+      emoji: string;
+      expiresAt: any;
+    };
   };
   lastMessage: {
     text: string;
     timestamp: Date;
-    type: 'text' | 'snap' | 'voice';
+    type: 'text' | 'snap' | 'voice' | 'image' | 'document';
     viewed?: boolean;
     senderId: string;
     senderName?: string;
@@ -190,9 +196,13 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
             if (doc.exists()) {
               const data = doc.data();
               const current = globalUserDetailsCache.get(conv.partnerId) || {};
-              globalUserDetailsCache.set(conv.partnerId, { ...current, status: data.status });
+              globalUserDetailsCache.set(conv.partnerId, { 
+                ...current, 
+                status: data.status,
+                moodStatus: data.moodStatus 
+              });
               setConversations(prev => prev.map(c => 
-                (!c.isGroup && c.partnerId === conv.partnerId) ? { ...c, user: { ...c.user, status: data.status } } : c
+                (!c.isGroup && c.partnerId === conv.partnerId) ? { ...c, user: { ...c.user, status: data.status, moodStatus: data.moodStatus } } : c
               ));
             }
           }, (error) => {
@@ -208,6 +218,7 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
             displayName: userData.displayName,
             photoURL: userData.photoURL,
             status: userData.status || 'offline',
+            moodStatus: userData.moodStatus,
           }
         };
       }));
@@ -317,8 +328,16 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
               className={`flex-1 ml-1 text-sm ${item.unreadCount > 0 ? 'font-bold tracking-tight' : ''}`}
               style={{ color: item.unreadCount > 0 ? primaryColor : subTextColor }}
             >
-              {item.isGroup ? `${item.lastMessage.senderName}: ${item.lastMessage.text}` :
+              {item.isGroup ? `${item.lastMessage.senderName}: ${
+                  item.lastMessage.type === 'image' ? 'Photo' : 
+                  item.lastMessage.type === 'document' ? 'Document' : 
+                  item.lastMessage.type === 'snap' ? 'Snap' : 
+                  item.lastMessage.type === 'voice' ? 'Voice note' : 
+                  item.lastMessage.text
+                }` :
                item.lastMessage.type === 'snap' ? (item.unreadCount > 0 ? 'New Snap • Tap to view' : 'Snap') : 
+               item.lastMessage.type === 'image' ? (item.unreadCount > 0 ? 'New Photo • Tap to view' : 'Photo') :
+               item.lastMessage.type === 'document' ? (item.unreadCount > 0 ? 'New Document • Tap to view' : 'Document') :
                item.lastMessage.type === 'voice' ? 'Voice note' : item.lastMessage.text}
             </Text>
           </View>
@@ -332,8 +351,16 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
       <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
       
       {loading && conversations.length === 0 ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color={primaryColor} />
+        <View className="flex-1 px-4 py-4">
+           {[1,2,3,4,5,6,7,8].map(i => (
+             <View key={i} className="flex-row items-center mb-6">
+                <ShimmerPlaceholder width={56} height={56} borderRadius={28} />
+                <View className="ml-4 flex-1">
+                   <ShimmerPlaceholder width="40%" height={14} borderRadius={4} />
+                   <ShimmerPlaceholder width="80%" height={10} borderRadius={4} style={{ marginTop: 8 }} />
+                </View>
+             </View>
+           ))}
         </View>
       ) : (
         <View style={getResponsiveContainerStyle()}>
@@ -347,7 +374,8 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
             windowSize={5}
             removeClippedSubviews={Platform.OS === 'android'}
             ListHeaderComponent={
-              <View className={`flex-row items-center justify-around px-2 py-3 mb-2 ${isTablet ? 'max-w-md self-center w-full' : ''}`}>
+              <View>
+                <View className={`flex-row items-center justify-around px-2 py-3 mb-2 ${isTablet ? 'max-w-md self-center w-full' : ''}`}>
                 <TouchableOpacity
                   onPress={() => setViewMode('private')}
                   className={`flex-1 flex-row items-center justify-center py-3 rounded-2xl mx-1`}
@@ -377,6 +405,7 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
                   <Lock size={16} color={viewMode === 'secret' ? (isLightColor(primaryColor) && !isDarkMode ? getContrastText(primaryColor) : primaryColor) : subTextColor} />
                   <Text className={`ml-2 font-bold text-xs`} style={{ color: viewMode === 'secret' ? (isLightColor(primaryColor) && !isDarkMode ? getContrastText(primaryColor) : primaryColor) : subTextColor }}>Secret</Text>
                 </TouchableOpacity>
+                </View>
               </View>
             }
             ListEmptyComponent={

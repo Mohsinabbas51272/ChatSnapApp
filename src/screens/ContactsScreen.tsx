@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Image, ActivityIndicator, StatusBar, Platform, TextInput, ScrollView, Alert, Modal } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, Image, ActivityIndicator, StatusBar, Platform, TextInput, ScrollView, Alert, Modal, StyleSheet } from 'react-native';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import QRCode from 'react-native-qrcode-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Header from '../components/ui/Header';
 import { syncContacts, ContactUser, searchUsers } from '../services/contacts';
@@ -18,11 +20,15 @@ import {
 import { subscribeToSecretConversations } from '../services/messaging';
 import { fetchUsersByIds } from '../services/contacts';
 import { useNavigation } from '@react-navigation/native';
-import { UserPlus, UserCheck, Clock, Check, X, Users, MessageCircle, Plus, Users as UsersIcon, Info, Lock, Shield, Eye, EyeOff } from 'lucide-react-native';
+import { 
+  UserPlus, UserCheck, Clock, Check, X, Users, MessageCircle, Plus, 
+  Info, Lock, Shield, Eye, EyeOff, Scan, QrCode, Search, Star, Heart 
+} from 'lucide-react-native';
 import { getMutualFriends, createGroup, subscribeToGroups, Group } from '../services/groups';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../services/firebaseConfig';
 import { useDispatch } from 'react-redux';
+import ShimmerPlaceholder from '../components/ui/ShimmerPlaceholder';
 
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
@@ -62,9 +68,74 @@ const ContactsScreen = ({ searchQuery = '' }: { searchQuery?: string }) => {
   const [showPasswordText, setShowPasswordText] = useState(false);
   const [pendingSecretUser, setPendingSecretUser] = useState<ContactUser | null>(null);
 
+  // QR Social States
+  const [showScanModal, setShowScanModal] = useState(false);
+  const [showMyQrModal, setShowMyQrModal] = useState(false);
+  const [scanned, setScanned] = useState(false);
+  const [permission, requestPermission] = useCameraPermissions();
+
   const auth = useSelector((state: RootState) => state.auth);
   const navigation = useNavigation<any>();
   const dispatch = useDispatch();
+
+  const handleBarCodeScanned = async ({ data }: { data: string }) => {
+    if (scanned) return;
+    setScanned(true);
+    
+    // Format: chatsnap:user:UID
+    if (data.startsWith('chatsnap:user:')) {
+      const scannedUid = data.replace('chatsnap:user:', '');
+      if (scannedUid === auth.uid) {
+         Alert.alert("Khud ko?", "Aap apna hi QR code scan kar rahe hain!");
+         setScanned(false);
+         return;
+      }
+      
+      try {
+        setLoading(true);
+        setShowScanModal(false);
+        // Fetch the user data by scanned UID
+        const profiles = await fetchUsersByIds([scannedUid]);
+        if (profiles.length > 0) {
+           const targetUser = profiles[0];
+           Alert.alert(
+              "Dost Mil Gaya!",
+              `${targetUser.displayName} ko friend request bhejein?`,
+              [
+                { text: "Nahi", style: "cancel", onPress: () => setScanned(false) },
+                { text: "Bhejein", onPress: async () => {
+                   await handleSendRequest(targetUser);
+                   setScanned(false);
+                }}
+              ]
+           );
+        } else {
+           Alert.alert("Nahi Mila", "Yeh user nahi mil saka.");
+           setScanned(false);
+        }
+      } catch (e) {
+        Alert.alert("Masla", "QR scan karne mein masla hua.");
+        setScanned(false);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      Alert.alert("Ghalat QR", "Yeh ChatSnap ka valid QR code nahi hai.");
+      setTimeout(() => setScanned(false), 2000);
+    }
+  };
+
+  const openScanner = async () => {
+    if (!permission?.granted) {
+       const { granted } = await requestPermission();
+       if (!granted) {
+          Alert.alert("Camera Rukawat", "QR scan karne ke liye camera ki permission chahiye.");
+          return;
+       }
+    }
+    setScanned(false);
+    setShowScanModal(true);
+  };
 
   const handleSetupSecretPassword = async () => {
     if (tempPassword.length < 4) {
@@ -323,33 +394,45 @@ const ContactsScreen = ({ searchQuery = '' }: { searchQuery?: string }) => {
 
   const RequestItem = ({ item }: { item: FriendRequest }) => (
     <View 
-      className="mx-4 mb-3 p-4 rounded-2xl flex-row items-center border shadow-sm"
-      style={{ backgroundColor: surfaceLow, borderColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}
+      className="mx-4 mb-4 p-5 rounded-[32px] flex-row items-center border shadow-xl"
+      style={{ 
+        backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : '#FFFFFF', 
+        borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+        shadowColor: primaryColor,
+        shadowOpacity: 0.1,
+        shadowRadius: 10
+      }}
     >
-      <View className="w-10 h-10 rounded-full items-center justify-center overflow-hidden" style={{ backgroundColor: surfaceHigh }}>
+      <View className="w-14 h-14 rounded-2xl items-center justify-center overflow-hidden border border-white/10" style={{ backgroundColor: surfaceHigh }}>
         {item.senderPhoto ? (
           <Image source={{ uri: item.senderPhoto }} className="w-full h-full" />
         ) : (
-          <Text className="font-bold" style={{ color: primaryColor }}>{(item.senderName || '?').charAt(0)}</Text>
+          <Text className="font-bold text-xl" style={{ color: primaryColor }}>{(item.senderName || '?').charAt(0)}</Text>
         )}
       </View>
-      <View className="flex-1 ml-3">
-        <Text className="font-bold text-sm" style={{ color: textColor }}>{item.senderName}</Text>
-        <Text className="text-xs" style={{ color: subTextColor }}>Sent a friend request</Text>
+      <View className="flex-1 ml-4">
+        <View className="flex-row items-center">
+           <Text className="font-black text-base" style={{ color: textColor }}>{item.senderName}</Text>
+           <View className="ml-2 px-1.5 py-0.5 rounded-md bg-rose-500">
+              <Text className="text-[7px] font-black text-white uppercase">New Request</Text>
+           </View>
+        </View>
+        <Text className="text-xs font-medium" style={{ color: subTextColor }}>Wants to be your friend!</Text>
       </View>
       <View className="flex-row">
         <TouchableOpacity 
           onPress={() => handleResponse(item.id, 'accepted')}
-          className="w-8 h-8 rounded-full bg-primary items-center justify-center mr-2"
+          className="w-10 h-10 rounded-xl items-center justify-center mr-2 shadow-sm"
+          style={{ backgroundColor: primaryColor }}
         >
-          <Check size={16} color="white" />
+          <Check size={20} color="white" />
         </TouchableOpacity>
         <TouchableOpacity 
           onPress={() => handleResponse(item.id, 'declined')}
-          className="w-8 h-8 rounded-full items-center justify-center"
-          style={{ backgroundColor: surfaceHigh }}
+          className="w-10 h-10 rounded-xl items-center justify-center border"
+          style={{ backgroundColor: surfaceHigh, borderColor: 'rgba(255,0,0,0.1)' }}
         >
-          <X size={16} color="#ff6e85" />
+          <X size={20} color="#ff6e85" />
         </TouchableOpacity>
       </View>
     </View>
@@ -467,8 +550,19 @@ const ContactsScreen = ({ searchQuery = '' }: { searchQuery?: string }) => {
       <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
       
       {loading ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color={primaryColor} />
+        <View className="flex-1 px-6 py-6">
+           <View className="flex-row justify-between mb-8">
+              {[1,2,3].map(i => <ShimmerPlaceholder key={i} width="30%" height={100} borderRadius={24} />)}
+           </View>
+           {[1,2,3,4,5].map(i => (
+             <View key={i} className="flex-row items-center mb-6">
+                <ShimmerPlaceholder width={48} height={48} borderRadius={24} />
+                <View className="ml-4 flex-1">
+                   <ShimmerPlaceholder width="40%" height={14} borderRadius={4} />
+                   <ShimmerPlaceholder width="60%" height={10} borderRadius={4} style={{ marginTop: 8 }} />
+                </View>
+             </View>
+           ))}
         </View>
       ) : (
         <View style={getResponsiveContainerStyle()}>
@@ -479,17 +573,74 @@ const ContactsScreen = ({ searchQuery = '' }: { searchQuery?: string }) => {
             ListHeaderComponent={
               <>
                 {!showCreateGroup ? (
-                  <View className={`px-4 py-4 flex-row justify-between items-center ${isTablet ? 'max-w-md self-center w-full' : ''}`}>
+                  <View className={`px-4 pt-4 pb-2 ${isTablet ? 'max-w-md self-center w-full' : ''}`}>
+                      {/* Social Hub Quick Actions */}
+                      <View className="flex-row justify-between mb-6">
+                         {[
+                           { label: 'Add Friends', icon: UserPlus, color: '#3B82F6', onPress: () => {} },
+                           { label: 'Scan QR', icon: Scan, color: '#10B981', onPress: openScanner },
+                           { label: 'My QR', icon: QrCode, color: primaryColor, onPress: () => setShowMyQrModal(true) }
+                         ].map((action, i) => (
+                           <TouchableOpacity 
+                            key={i}
+                            onPress={action.onPress}
+                            className="items-center p-3 rounded-3xl border flex-1 mx-1"
+                            style={{ 
+                              backgroundColor: surfaceLow, 
+                              borderColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' 
+                            }}
+                           >
+                              <View className="w-10 h-10 rounded-2xl items-center justify-center mb-2" style={{ backgroundColor: `${action.color}15` }}>
+                                 <action.icon size={20} color={action.color} />
+                              </View>
+                              <Text className="text-[10px] font-black uppercase tracking-tighter" style={{ color: textColor }}>{action.label}</Text>
+                           </TouchableOpacity>
+                         ))}
+                      </View>
+
+                      {/* Your Friends Horizontal Section */}
+                      {friendUsers.length > 0 && (
+                        <View className="mb-6">
+                           <View className="flex-row items-center justify-between mb-4 px-2">
+                              <Text className="text-sm font-black uppercase tracking-[2px]" style={{ color: subTextColor }}>Top Friends</Text>
+                              <TouchableOpacity><Text className="text-[10px] font-bold" style={{ color: primaryColor }}>View All</Text></TouchableOpacity>
+                           </View>
+                           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="pl-1">
+                              {friendUsers.map(friend => (
+                                <TouchableOpacity 
+                                  key={friend.uid} 
+                                  onPress={() => navigation.navigate('Chat', { user: friend })}
+                                  className="items-center mr-6"
+                                >
+                                   <View 
+                                    className="w-16 h-16 rounded-[24px] overflow-hidden border-2 p-0.5 shadow-lg"
+                                    style={{ borderColor: primaryColor }}
+                                   >
+                                      <View className="flex-1 rounded-[21px] overflow-hidden bg-slate-200">
+                                         {friend.photoURL ? (
+                                           <Image source={{ uri: friend.photoURL }} className="w-full h-full" />
+                                         ) : (
+                                           <View className="flex-1 items-center justify-center"><Users size={24} color={primaryColor} /></View>
+                                         )}
+                                      </View>
+                                   </View>
+                                   <Text className="mt-2 text-[10px] font-black text-center" style={{ color: textColor }} numberOfLines={1}>{friend.displayName.split(' ')[0]}</Text>
+                                </TouchableOpacity>
+                              ))}
+                           </ScrollView>
+                        </View>
+                      )}
+
                       <TouchableOpacity 
                        onPress={() => setShowCreateGroup(true)}
-                       className="flex-1 p-4 rounded-3xl flex-row items-center justify-center border"
+                       className="p-4 rounded-3xl flex-row items-center justify-center border shadow-sm"
                        style={{ 
-                         backgroundColor: isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.05)' : `${primaryColor}15`, 
-                         borderColor: isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.1)' : `${primaryColor}30` 
+                         backgroundColor: primaryColor, 
+                         borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' 
                        }}
                       >
-                         <UsersIcon size={20} color={isLightColor(primaryColor) && !isDarkMode ? '#000000' : primaryColor} />
-                         <Text className="ml-2 font-black text-sm uppercase tracking-widest" style={{ color: isLightColor(primaryColor) && !isDarkMode ? '#000000' : primaryColor }}>New Group Chat</Text>
+                         <Users size={20} color="white" />
+                         <Text className="ml-2 font-black text-sm uppercase tracking-widest text-white">Create New Squad</Text>
                       </TouchableOpacity>
                   </View>
                 ) : (
@@ -531,7 +682,7 @@ const ContactsScreen = ({ searchQuery = '' }: { searchQuery?: string }) => {
                 {groups.length > 0 && !showCreateGroup && (
                   <View className={`py-2 ${isTablet ? 'max-w-md self-center w-full' : ''}`}>
                      <View className="flex-row items-center px-6 py-3">
-                        <UsersIcon size={18} color={primaryColor} />
+                        <Users size={18} color={primaryColor} />
                         <Text className="ml-2 text-sm font-bold uppercase tracking-widest" style={{ color: subTextColor }}>My Squads</Text>
                      </View>
                      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-4 mb-4">
@@ -545,7 +696,7 @@ const ContactsScreen = ({ searchQuery = '' }: { searchQuery?: string }) => {
                                 className="w-16 h-16 rounded-3xl items-center justify-center border mb-2 shadow-sm"
                                 style={{ backgroundColor: surfaceHigh, borderColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}
                              >
-                                <UsersIcon size={24} color={primaryColor} />
+                                <Users size={24} color={primaryColor} />
                              </View>
                              <Text className="font-bold text-xs" numberOfLines={1} style={{ color: textColor }}>{group.name}</Text>
                           </TouchableOpacity>
@@ -677,8 +828,94 @@ const ContactsScreen = ({ searchQuery = '' }: { searchQuery?: string }) => {
           </TouchableOpacity>
       </Modal>
 
+      {/* MY QR MODAL */}
+      <Modal animationType="slide" transparent={true} visible={showMyQrModal} onRequestClose={() => setShowMyQrModal(false)}>
+          <View className="flex-1 bg-black/80 items-center justify-center p-6">
+              <View className={`rounded-[48px] p-8 w-full ${isTablet ? 'max-w-md' : ''}`} style={{ backgroundColor: isDarkMode ? '#1a1c1e' : '#FFFFFF' }}>
+                  <View className="items-center mb-8">
+                      <View className="w-20 h-20 rounded-3xl overflow-hidden border-2 mb-4 p-1" style={{ borderColor: primaryColor }}>
+                          <View className="flex-1 rounded-[1.2rem] overflow-hidden bg-slate-100">
+                              {auth.photoURL ? <Image source={{ uri: auth.photoURL }} className="w-full h-full" /> : <Users size={40} color={primaryColor} /> }
+                          </View>
+                      </View>
+                      <Text className="text-2xl font-black" style={{ color: textColor }}>{auth.displayName}</Text>
+                      <Text className="text-sm font-bold opacity-50" style={{ color: textColor }}>Your Unique ChatSnap Code</Text>
+                  </View>
+
+                  <View className="items-center p-8 rounded-[40px] mb-8 shadow-2xl" style={{ backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : '#F5F7FF' }}>
+                      <QRCode value={`chatsnap:user:${auth.uid}`} size={200} color={primaryColor} backgroundColor="transparent" />
+                  </View>
+
+                  <TouchableOpacity onPress={() => setShowMyQrModal(false)} className="w-full py-5 rounded-[24px] items-center" style={{ backgroundColor: primaryColor }}>
+                      <Text className="text-white font-black uppercase tracking-widest">Back to Contacts</Text>
+                  </TouchableOpacity>
+              </View>
+          </View>
+      </Modal>
+
+      {/* SCAN QR MODAL */}
+      <Modal animationType="slide" visible={showScanModal} onRequestClose={() => setShowScanModal(false)}>
+          <View style={StyleSheet.absoluteFill}>
+              <CameraView 
+                style={StyleSheet.absoluteFill} 
+                onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+              />
+              
+              {/* Scanning Overlay */}
+              <View style={styles.overlay}>
+                  <View className="items-center mb-20">
+                      <Text className="text-white text-2xl font-black mb-2">Scan QR Code</Text>
+                      <Text className="text-white/60 font-bold">Align the square with your friend's code</Text>
+                  </View>
+                  
+                  <View style={[styles.scanFrame, { borderColor: primaryColor }]}>
+                      <View style={[styles.corner, styles.topLeft, { borderColor: primaryColor }]} />
+                      <View style={[styles.corner, styles.topRight, { borderColor: primaryColor }]} />
+                      <View style={[styles.corner, styles.bottomLeft, { borderColor: primaryColor }]} />
+                      <View style={[styles.corner, styles.bottomRight, { borderColor: primaryColor }]} />
+                  </View>
+
+                  <TouchableOpacity 
+                    onPress={() => setShowScanModal(false)}
+                    className="mt-20 w-16 h-16 rounded-full items-center justify-center bg-black/40 border border-white/20"
+                  >
+                      <X size={32} color="white" />
+                  </TouchableOpacity>
+              </View>
+          </View>
+      </Modal>
+
     </View>
   );
 };
 
 export default ContactsScreen;
+
+const styles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  scanFrame: {
+    width: 260,
+    height: 260,
+    borderWidth: 0,
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  corner: {
+    position: 'absolute',
+    width: 40,
+    height: 40,
+    borderWidth: 4,
+    borderRadius: 12,
+  },
+  topLeft: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0 },
+  topRight: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0 },
+  bottomLeft: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0 },
+  bottomRight: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0 },
+});

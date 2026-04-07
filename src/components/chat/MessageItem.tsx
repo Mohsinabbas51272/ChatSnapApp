@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Image, useWindowDimensions, Platform } from 'react-native';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import Animated, { FadeIn, SlideInRight, SlideInLeft, Layout } from 'react-native-reanimated';
-import { Camera, Check, CheckCheck, Play, Pause, Trash } from 'lucide-react-native';
+import { Camera, Check, CheckCheck, Play, Pause, Trash, FileText, MapPin, BarChart3 } from 'lucide-react-native';
+import { Linking } from 'react-native';
 import { Audio } from 'expo-av';
 import { isLightColor, getContrastText } from '../../services/colors';
 
@@ -93,10 +95,12 @@ interface MessageItemProps {
   onLongPress: (id: string) => void;
   reactionMessageId: string | null;
   handleReaction: (msgId: string, emoji: string, currentReactions: any) => void;
-  handleDeleteMessage: (msgId: string) => void;
+  handleDeleteMessage: (id: string) => void;
   primaryColor: string;
   isGroup: boolean;
   isDarkMode: boolean;
+  onPressMedia?: (item: any) => void;
+  onVote?: (messageId: string, optionIndex: number) => void;
 }
 
 const MessageItem: React.FC<MessageItemProps> = React.memo(({ 
@@ -110,11 +114,17 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
   handleDeleteMessage, 
   primaryColor, 
   isGroup,
-  isDarkMode
+  isDarkMode,
+  onPressMedia,
+  onVote
 }) => {
   const { width } = useWindowDimensions();
   const isSnap = item.type === 'snap';
   const isVoice = item.type === 'voice';
+  const isImage = item.type === 'image';
+  const isDocument = item.type === 'document';
+  const isLocation = item.type === 'location';
+  const isPoll = item.type === 'poll';
   const hasReactions = item.reactions && Object.keys(item.reactions).length > 0;
 
   const partnerName = chatPartner?.displayName || chatPartner?.phoneNumber || item?.displayName || 'User';
@@ -150,7 +160,20 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
       )}
       <View style={{ maxWidth: width * 0.75 }}>
         <TouchableOpacity 
-          onPress={() => isMe ? null : (isSnap ? onOpenSnap(item) : null)}
+          onPress={() => {
+            if (isSnap && !isMe) {
+              onOpenSnap(item);
+            } else if (isImage || isDocument) {
+              onPressMedia?.(item);
+            } else if (isLocation && item.location) {
+              const { latitude, longitude } = item.location;
+              const url = Platform.select({
+                ios: `maps:0,0?q=${latitude},${longitude}`,
+                android: `geo:0,0?q=${latitude},${longitude}`,
+              }) || `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+              Linking.openURL(url);
+            }
+          }}
           onLongPress={() => onLongPress(item.id!)}
           delayLongPress={300}
           style={isMe ? {
@@ -200,6 +223,93 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
                primaryColor={primaryColor} 
                isDarkMode={isDarkMode}
              />
+          ) : isImage ? (
+             <View className="flex-row items-center">
+               <View className="w-8 h-8 rounded-full items-center justify-center" style={{ backgroundColor: isMe ? 'rgba(255,255,255,0.2)' : (isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)') }}>
+                 <Camera size={18} color={isMe ? getContrastText(primaryColor) : (isLightColor(primaryColor) && !isDarkMode ? '#000000' : primaryColor)} />
+               </View>
+               <Text className="ml-3 font-bold text-base" style={{ color: textColor }}>
+                 {isMe ? 'Sent Photo' : 'Photo • Tap to View'}
+               </Text>
+             </View>
+          ) : isDocument ? (
+             <View className="flex-row items-center">
+               <View className="w-8 h-8 rounded-full items-center justify-center" style={{ backgroundColor: isMe ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.05)' }}>
+                 <FileText size={18} color={textColor} />
+               </View>
+               <Text className="ml-3 font-bold text-base" style={{ color: textColor }}>
+                 {isMe ? 'Sent Document' : 'Document • Tap to View'}
+               </Text>
+             </View>
+          ) : isLocation ? (
+             <View className="w-[200px]">
+                <View className="h-32 mb-2 rounded-xl overflow-hidden border border-white/10">
+                   <MapView
+                     provider={PROVIDER_GOOGLE}
+                     liteMode={true}
+                     initialRegion={{
+                       latitude: item.location?.latitude || 0,
+                       longitude: item.location?.longitude || 0,
+                       latitudeDelta: 0.01,
+                       longitudeDelta: 0.01,
+                     }}
+                     style={{ width: '100%', height: '100%' }}
+                     pointerEvents="none"
+                   >
+                     <Marker 
+                       coordinate={{ 
+                         latitude: item.location?.latitude || 0, 
+                         longitude: item.location?.longitude || 0 
+                       }} 
+                     />
+                   </MapView>
+                </View>
+                <View className="flex-row items-center">
+                  <View className="w-6 h-6 rounded-full items-center justify-center" style={{ backgroundColor: isMe ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.05)' }}>
+                    <MapPin size={14} color={isMe ? 'white' : textColor} />
+                  </View>
+                  <Text className="ml-2 font-black text-[12px] uppercase tracking-tighter" style={{ color: isMe ? 'white' : textColor }}>
+                    {isMe ? 'My Location' : `${partnerName}'s Location`}
+                  </Text>
+                </View>
+             </View>
+          ) : isPoll ? (
+             <View className="w-full">
+               <View className="flex-row items-center mb-3">
+                 <BarChart3 size={18} color={textColor} />
+                 <Text className="ml-2 font-black text-xs uppercase tracking-widest" style={{ color: subTextColor }}>Live Poll</Text>
+               </View>
+               <Text className="text-lg font-black mb-4 tracking-tight" style={{ color: textColor }}>{item.poll?.question}</Text>
+               <View className="space-y-2">
+                 {item.poll?.options.map((option: string, index: number) => {
+                   const totalVotes = Object.keys(item.poll?.votes || {}).length;
+                   const votesForThis = Object.values(item.poll?.votes || {}).filter(v => v === index).length;
+                   const percentage = totalVotes > 0 ? Math.round((votesForThis / totalVotes) * 100) : 0;
+                   const hasVoted = item.poll?.votes?.[chatPartner?.uid === item.senderId ? (isMe ? 'me' : 'them') : 'placeholder'] !== undefined; // simplified for UI
+
+                   return (
+                     <TouchableOpacity 
+                       key={index} 
+                       onPress={() => onVote?.(item.id!, index)}
+                       className="rounded-xl p-3 relative overflow-hidden mb-2"
+                       style={{ backgroundColor: isMe ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }}
+                     >
+                       <View 
+                         className="absolute left-0 top-0 bottom-0 opacity-20" 
+                         style={{ width: `${percentage}%`, backgroundColor: textColor }} 
+                       />
+                       <View className="flex-row justify-between items-center px-1">
+                         <Text className="font-bold flex-1" style={{ color: textColor }}>{option}</Text>
+                         <Text className="text-xs font-black" style={{ color: textColor }}>{percentage}%</Text>
+                       </View>
+                     </TouchableOpacity>
+                   );
+                 })}
+               </View>
+               <Text className="text-[9px] font-black uppercase mt-2 text-center opacity-40" style={{ color: textColor }}>
+                 {Object.keys(item.poll?.votes || {}).length} Total Votes
+               </Text>
+             </View>
           ) : (
             <View>
                 {!isMe && isGroup && item.displayName && (

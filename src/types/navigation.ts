@@ -17,6 +17,7 @@ export type RootStackParamList = {
   QRProfile: undefined;
   QRScanner: undefined;
   AdminPanel: undefined;
+  Wallet: undefined;
 };
 
 export type HomeTabParamList = {
@@ -24,6 +25,7 @@ export type HomeTabParamList = {
   Stories: { searchQuery?: string };
   Contacts: { searchQuery?: string };
   Settings: undefined;
+  Earn: undefined;
 };
 
 export type RootStackScreenProps<T extends keyof RootStackParamList> = 

@@ -19,7 +19,8 @@ export interface GroupMessage {
   senderId: string;
   senderName: string;
   text: string;
-  type: 'text' | 'image' | 'snap' | 'voice';
+  type: 'text' | 'image' | 'snap' | 'voice' | 'document' | 'poll';
+  poll?: { question: string; options: string[]; votes: { [uid: string]: number } };
   timestamp: any;
 }
 
@@ -64,7 +65,13 @@ export const deleteGroupMessage = async (messageId: string) => {
 };
 
 // Send a message to a group
-export const sendGroupMessage = async (groupId: string, text: string, senderName: string, type: 'text' | 'image' | 'snap' | 'voice' = 'text') => {
+export const sendGroupMessage = async (
+  groupId: string, 
+  text: string, 
+  senderName: string, 
+  type: 'text' | 'image' | 'snap' | 'voice' | 'document' | 'poll' | 'location' = 'text',
+  extras?: any
+) => {
   const currentUser = auth.currentUser;
   if (!currentUser) return;
 
@@ -75,6 +82,8 @@ export const sendGroupMessage = async (groupId: string, text: string, senderName
     text,
     type,
     timestamp: serverTimestamp(),
+    ...(type === 'poll' ? { poll: { ...extras, votes: {} } } : {}),
+    ...(type === 'location' ? { location: extras } : {}),
   });
 };
 
@@ -205,4 +214,11 @@ export const subscribeToGroupConversations = (userId: string, callback: (convers
     outerUnsub();
     innerUnsubscribers.forEach(unsub => unsub());
   };
+};
+
+export const voteInGroupPoll = async (messageId: string, optionIndex: number, userId: string) => {
+  const msgRef = doc(db, 'groupMessages', messageId);
+  await updateDoc(msgRef, {
+    [`poll.votes.${userId}`]: optionIndex
+  });
 };

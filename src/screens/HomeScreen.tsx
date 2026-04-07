@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, RefreshControl, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { MessageCircle, Users, CircleDashed, Settings as SettingsIcon, Search, Camera, UserRound, ChevronLeft } from 'lucide-react-native';
+import { MessageCircle, Users, CircleDashed, Settings as SettingsIcon, Search, Camera, UserRound, ChevronLeft, Gift } from 'lucide-react-native';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import { fetchStories, uploadStory, deleteStory, Story, recordStoryView } from '../services/stories';
@@ -14,11 +14,15 @@ import SnapViewer from '../components/SnapViewer';
 import ContactsScreen from './ContactsScreen';
 import ConversationsList from '../components/ConversationsList';
 import SettingsScreen from './SettingsScreen';
+import EarnScreen from './EarnScreen';
 import { subscribeToFriendRequests, subscribeToFriends } from '../services/social';
 import Header from '../components/ui/Header';
+import MoodTicker from '../components/MoodTicker';
 import { useResponsive } from '../hooks/useResponsive';
 import { RootStackScreenProps } from '../types/navigation';
 import { isLightColor, getContrastText } from '../services/colors';
+import FloatingTabBar from '../components/ui/FloatingTabBar';
+import ShimmerPlaceholder from '../components/ui/ShimmerPlaceholder';
 
 const Tab = createBottomTabNavigator();
 
@@ -163,19 +167,38 @@ const StoriesScreen = () => {
   return (
     <View className="flex-1">
       <ScrollView 
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={loadStories} tintColor={primaryColor} />}
+        refreshControl={<RefreshControl refreshing={loading && stories.length > 0} onRefresh={loadStories} tintColor={primaryColor} />}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 100 }}
       >
         <View style={getResponsiveContainerStyle()}>
-          <StoryList 
-            groupedStories={groupedStories} 
-            currentUser={user} 
-            onAddStory={() => setShowCamera(true)}
-            onViewStory={(s, index) => {
-              setActiveStories(s);
-              setInitialStoryIndex(index);
-            }}
-          />
+          {loading && stories.length === 0 ? (
+            <View className="px-6 py-4">
+              <View className="flex-row mb-8">
+                {[1,2,3,4].map(i => (
+                  <View key={i} className="mr-5 items-center">
+                    <ShimmerPlaceholder width={72} height={72} borderRadius={28} />
+                    <ShimmerPlaceholder width={50} height={10} borderRadius={4} style={{ marginTop: 8 }} />
+                  </View>
+                ))}
+              </View>
+              {[1,2,3].map(i => (
+                <View key={i} className="mb-6 rounded-[32px] overflow-hidden">
+                  <ShimmerPlaceholder width="100%" height={240} borderRadius={32} />
+                </View>
+              ))}
+            </View>
+          ) : (
+            <StoryList 
+              groupedStories={groupedStories} 
+              currentUser={user} 
+              onAddStory={() => setShowCamera(true)}
+              onViewStory={(s, index) => {
+                setActiveStories(s);
+                setInitialStoryIndex(index);
+              }}
+            />
+          )}
           
           <View 
             className="p-8 items-center justify-center mt-12 mx-6 rounded-3xl border"
@@ -242,6 +265,8 @@ const StoriesScreen = () => {
           isPaused={isPaused}
         />
       )}
+
+      <MoodTicker friendIds={friends} />
     </View>
   );
 };
@@ -280,7 +305,8 @@ const HomeScreen = ({ route, navigation }: RootStackScreenProps<'Home'>) => {
     'Chats': 'ChatSnap',
     'Stories': 'Discover',
     'Contacts': 'Contacts',
-    'Settings': 'Settings'
+    'Settings': 'Settings',
+    'Earn': 'Earn Rewards'
   };
 
   const navBg = isDarkMode ? '#000000' : primaryColor;
@@ -331,38 +357,11 @@ const HomeScreen = ({ route, navigation }: RootStackScreenProps<'Home'>) => {
           />
         )}
 
-        <Tab.Navigator
+        <Tab.Navigator 
+          tabBar={(props) => <FloatingTabBar {...props} />}
           screenOptions={{
             headerShown: false,
-            tabBarHideOnKeyboard: true,
-            tabBarShowLabel: true,
-            tabBarStyle: {
-              height: (isTablet ? 100 : 75) + insets.bottom,
-              paddingBottom: insets.bottom > 0 ? insets.bottom : (isTablet ? 25 : 12),
-              paddingTop: 10,
-              backgroundColor: navBg,
-              borderTopWidth: 0,
-              borderTopLeftRadius: isTablet ? 48 : 36,
-              borderTopRightRadius: isTablet ? 48 : 36,
-              elevation: 20,
-              shadowColor: isDarkMode ? primaryColor : '#000',
-              shadowOpacity: isDarkMode ? 0.4 : 0.15,
-              shadowOffset: { width: 0, height: -6 },
-              shadowRadius: 20,
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-            },
-            tabBarActiveTintColor: activeTint,
-            tabBarInactiveTintColor: inactiveTint,
-            tabBarLabelStyle: {
-              fontWeight: '900',
-              fontSize: isTablet ? 14 : 10,
-              textTransform: 'uppercase',
-              letterSpacing: 1.2,
-              marginBottom: 4,
-            }
+            tabBarStyle: { display: 'none' }
           }}
         >
           <Tab.Screen 
@@ -410,6 +409,18 @@ const HomeScreen = ({ route, navigation }: RootStackScreenProps<'Home'>) => {
           >
             {(props) => <ContactsScreen {...props} searchQuery={searchQuery} />}
           </Tab.Screen>
+
+          <Tab.Screen 
+            name="Earn" 
+            component={EarnScreen} 
+            options={{
+              tabBarIcon: ({ color, focused }) => (
+                <View style={[focused ? FOCUSED_ICON_STYLE : UNFOCUSED_ICON_STYLE, { backgroundColor: iconBgOnNav(focused) }]}>
+                  <Gift size={22} color={iconOnNav(focused)} />
+                </View>
+              ),
+            }}
+          />
 
           <Tab.Screen 
             name="Settings" 
