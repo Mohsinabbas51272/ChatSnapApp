@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Coins, Gift, PlaySquare, CalendarCheck, ArrowRight, Share2, Wallet, Camera, MessageCircle, Heart } from 'lucide-react-native';
+import { Coins, Gift, PlaySquare, CalendarCheck, ArrowRight, Share2, Wallet } from 'lucide-react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { useFocusEffect } from '@react-navigation/native';
 import { RootState, AppDispatch } from '../store';
@@ -58,6 +58,10 @@ const EarnScreen = ({ navigation }: any) => {
       Alert.alert('Error', error.message);
     }
   };
+
+  const today = new Date().toISOString().split('T')[0];
+  const isLoginClaimed = wallet?.lastLoginDate === today;
+  const isAdClaimed = wallet?.lastAdDate === today;
 
   const textColor = isDarkMode ? '#FFFFFF' : '#1a1c1e';
   const subTextColor = isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.5)';
@@ -126,7 +130,7 @@ const EarnScreen = ({ navigation }: any) => {
                 />
               </View>
               <Text className="mt-2 text-xs font-bold" style={{ color: subTextColor }}>
-                10 PKR ≈ 300 Coins
+                30 PKR ≈ 900 Coins
               </Text>
               
               {/* Daily Progress */}
@@ -151,7 +155,12 @@ const EarnScreen = ({ navigation }: any) => {
             <Text className="ml-2 mt-8 mb-4 font-heavy text-xl uppercase tracking-wider" style={{ color: textColor }}>
               Lucky Spin
             </Text>
-            <LuckySpinner />
+            <LuckySpinner onRewardClaimed={() => {
+              if (user.uid) {
+                dispatch(fetchWalletData(user.uid));
+                dispatch(fetchTransactions(user.uid));
+              }
+            }} />
 
             {/* Tasks Section */}
             <Text className="ml-2 mt-4 mb-4 font-heavy text-xl uppercase tracking-wider" style={{ color: textColor }}>
@@ -161,22 +170,24 @@ const EarnScreen = ({ navigation }: any) => {
             {/* Task 1: Daily Login */}
             <TouchableOpacity 
               className="mb-4 rounded-3xl p-5 flex-row items-center"
-              style={{ backgroundColor: cardBg }}
-              onPress={() => handleClaim('login', 5, 'Daily Login')}
-              disabled={claiming === 'login'}
+              style={{ backgroundColor: cardBg, opacity: isLoginClaimed ? 0.6 : 1 }}
+              onPress={() => !isLoginClaimed && handleClaim('login', 10, 'Daily Login')}
+              disabled={claiming === 'login' || isLoginClaimed}
             >
-              <View className="w-12 h-12 rounded-full items-center justify-center mr-4" style={{ backgroundColor: 'rgba(52, 199, 89, 0.15)' }}>
-                <CalendarCheck size={24} color="#34C759" />
+              <View className="w-12 h-12 rounded-full items-center justify-center mr-4" style={{ backgroundColor: isLoginClaimed ? 'rgba(0,0,0,0.05)' : 'rgba(52, 199, 89, 0.15)' }}>
+                <CalendarCheck size={24} color={isLoginClaimed ? subTextColor : "#34C759"} />
               </View>
               <View className="flex-1">
-                <Text className="font-bold text-lg" style={{ color: textColor }}>Daily Check-in</Text>
-                <Text className="text-sm mt-1" style={{ color: subTextColor }}>+5 Coins</Text>
+                <Text className="font-bold text-lg" style={{ color: isLoginClaimed ? subTextColor : textColor }}>Daily Check-in</Text>
+                <Text className="text-sm mt-1" style={{ color: subTextColor }}>+10 Coins</Text>
               </View>
               {claiming === 'login' ? (
                 <ActivityIndicator color={primaryColor} />
               ) : (
-                <View className="rounded-full px-4 py-2" style={{ backgroundColor: primaryColor }}>
-                  <Text className="font-bold text-xs" style={{ color: getContrastText(primaryColor) }}>Claim</Text>
+                <View className="rounded-full px-4 py-2" style={{ backgroundColor: isLoginClaimed ? progressBg : primaryColor }}>
+                  <Text className="font-bold text-xs" style={{ color: isLoginClaimed ? subTextColor : getContrastText(primaryColor) }}>
+                    {isLoginClaimed ? 'Claimed' : 'Claim'}
+                  </Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -184,93 +195,28 @@ const EarnScreen = ({ navigation }: any) => {
             {/* Task 2: Watch Ad */}
             <TouchableOpacity 
               className="mb-4 rounded-3xl p-5 flex-row items-center"
-              style={{ backgroundColor: cardBg }}
-              onPress={() => handleClaim('ad', 5, 'Watched Video Ad')}
-              disabled={claiming === 'ad'}
+              style={{ backgroundColor: cardBg, opacity: isAdClaimed ? 0.6 : 1 }}
+              onPress={() => !isAdClaimed && handleClaim('ad', 10, 'Watched Video Ad')}
+              disabled={claiming === 'ad' || isAdClaimed}
             >
-              <View className="w-12 h-12 rounded-full items-center justify-center mr-4" style={{ backgroundColor: 'rgba(0, 122, 255, 0.15)' }}>
-                <PlaySquare size={24} color="#007AFF" />
+              <View className="w-12 h-12 rounded-full items-center justify-center mr-4" style={{ backgroundColor: isAdClaimed ? 'rgba(0,0,0,0.05)' : 'rgba(0, 122, 255, 0.15)' }}>
+                <PlaySquare size={24} color={isAdClaimed ? subTextColor : "#007AFF"} />
               </View>
               <View className="flex-1">
-                <Text className="font-bold text-lg" style={{ color: textColor }}>Watch a Video Ad</Text>
-                <Text className="text-sm mt-1" style={{ color: subTextColor }}>+5 Coins</Text>
+                <Text className="font-bold text-lg" style={{ color: isAdClaimed ? subTextColor : textColor }}>Watch a Video Ad</Text>
+                <Text className="text-sm mt-1" style={{ color: subTextColor }}>+10 Coins</Text>
               </View>
               {claiming === 'ad' ? (
                 <ActivityIndicator color={primaryColor} />
               ) : (
-                <View className="rounded-full px-4 py-2" style={{ backgroundColor: primaryColor }}>
-                  <Text className="font-bold text-xs" style={{ color: getContrastText(primaryColor) }}>Watch</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            {/* Task 3: Post a Story */}
-            <TouchableOpacity 
-              className="mb-4 rounded-3xl p-5 flex-row items-center"
-              style={{ backgroundColor: cardBg }}
-              onPress={() => handleClaim('story', 5, 'Posted a Story')}
-              disabled={claiming === 'story'}
-            >
-              <View className="w-12 h-12 rounded-full items-center justify-center mr-4" style={{ backgroundColor: 'rgba(255, 149, 0, 0.15)' }}>
-                <Camera size={24} color="#FF9500" />
-              </View>
-              <View className="flex-1">
-                <Text className="font-bold text-lg" style={{ color: textColor }}>Post a Story</Text>
-                <Text className="text-sm mt-1" style={{ color: subTextColor }}>+5 Coins</Text>
-              </View>
-              {claiming === 'story' ? (
-                <ActivityIndicator color={primaryColor} />
-              ) : (
-                <View className="rounded-full px-4 py-2" style={{ backgroundColor: primaryColor }}>
-                  <Text className="font-bold text-xs" style={{ color: getContrastText(primaryColor) }}>Claim</Text>
+                <View className="rounded-full px-4 py-2" style={{ backgroundColor: isAdClaimed ? progressBg : primaryColor }}>
+                  <Text className="font-bold text-xs" style={{ color: isAdClaimed ? subTextColor : getContrastText(primaryColor) }}>
+                    {isAdClaimed ? 'Done' : 'Watch'}
+                  </Text>
                 </View>
               )}
             </TouchableOpacity>
 
-            {/* Task 4: Chat with Friend */}
-            <TouchableOpacity 
-              className="mb-4 rounded-3xl p-5 flex-row items-center"
-              style={{ backgroundColor: cardBg }}
-              onPress={() => handleClaim('chat', 5, 'Chatted with a friend')}
-              disabled={claiming === 'chat'}
-            >
-              <View className="w-12 h-12 rounded-full items-center justify-center mr-4" style={{ backgroundColor: 'rgba(175, 82, 222, 0.15)' }}>
-                <MessageCircle size={24} color="#AF52DE" />
-              </View>
-              <View className="flex-1">
-                <Text className="font-bold text-lg" style={{ color: textColor }}>Send 5 Messages</Text>
-                <Text className="text-sm mt-1" style={{ color: subTextColor }}>+5 Coins</Text>
-              </View>
-              {claiming === 'chat' ? (
-                <ActivityIndicator color={primaryColor} />
-              ) : (
-                <View className="rounded-full px-4 py-2" style={{ backgroundColor: primaryColor }}>
-                  <Text className="font-bold text-xs" style={{ color: getContrastText(primaryColor) }}>Claim</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-
-            {/* Task 5: Follow Us */}
-            <TouchableOpacity 
-              className="mb-4 rounded-3xl p-5 flex-row items-center"
-              style={{ backgroundColor: cardBg }}
-              onPress={() => handleClaim('follow', 15, 'Followed on Instagram')}
-              disabled={claiming === 'follow'}
-            >
-              <View className="w-12 h-12 rounded-full items-center justify-center mr-4" style={{ backgroundColor: 'rgba(255, 45, 85, 0.15)' }}>
-                <Heart size={24} color="#FF2D55" />
-              </View>
-              <View className="flex-1">
-                <Text className="font-bold text-lg" style={{ color: textColor }}>Follow on Socials</Text>
-                <Text className="text-sm mt-1" style={{ color: subTextColor }}>+15 Coins (Once)</Text>
-              </View>
-              {claiming === 'follow' ? (
-                <ActivityIndicator color={primaryColor} />
-              ) : (
-                <View className="rounded-full px-4 py-2" style={{ backgroundColor: primaryColor }}>
-                  <Text className="font-bold text-xs" style={{ color: getContrastText(primaryColor) }}>Claim</Text>
-                </View>
-              )}
-            </TouchableOpacity>
             {/* Referral Section */}
             <Text className="ml-2 mt-6 mb-4 font-heavy text-xl uppercase tracking-wider" style={{ color: textColor }}>
               Invite Friends
@@ -290,6 +236,18 @@ const EarnScreen = ({ navigation }: any) => {
                 <Share2 size={18} color={primaryColor} />
                 <Text className="font-bold ml-2" style={{ color: primaryColor }}>Share Invite Link</Text>
               </TouchableOpacity>
+            </View>
+
+            {/* Referral Stats */}
+            <View className="mb-10 flex-row space-x-4">
+               <View className="flex-1 rounded-3xl p-5" style={{ backgroundColor: cardBg }}>
+                  <Text className="text-[10px] font-bold mb-1" style={{ color: subTextColor, opacity: 0.6 }}>TOTAL REFERRALS</Text>
+                  <Text className="text-2xl font-black" style={{ color: textColor }}>{user.referralCount || 0}</Text>
+               </View>
+               <View className="flex-1 rounded-3xl p-5" style={{ backgroundColor: cardBg }}>
+                  <Text className="text-[10px] font-bold mb-1" style={{ color: subTextColor, opacity: 0.6 }}>EARNED COINS</Text>
+                  <Text className="text-2xl font-black" style={{ color: '#FF9500' }}>{(user.referralCount || 0) * 30}</Text>
+               </View>
             </View>
 
           </View>

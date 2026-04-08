@@ -2,55 +2,29 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, useWindowDimensions, Platform } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import Animated, { FadeIn, SlideInRight, SlideInLeft, Layout } from 'react-native-reanimated';
-import { Camera, Check, CheckCheck, Play, Pause, Trash, FileText, MapPin, BarChart3 } from 'lucide-react-native';
+import { Camera, Check, CheckCheck, Play, Pause, Trash, FileText, MapPin, BarChart3, Forward } from 'lucide-react-native';
 import { Linking } from 'react-native';
-import { Audio } from 'expo-av';
+import { useAudioPlayer } from 'expo-audio';
+import { Swipeable } from 'react-native-gesture-handler';
 import { isLightColor, getContrastText } from '../../services/colors';
 
 const VoiceMessagePlayer = React.memo(({ uri, duration, isMe, primaryColor, isDarkMode }: { uri: string; duration?: number; isMe: boolean; primaryColor: string; isDarkMode: boolean }) => {
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [position, setPosition] = useState(0);
-
+  const player = useAudioPlayer(uri);
+  
   const surfaceHigh = isDarkMode ? '#000000' : '#E8EAF6';
   const textColor = isMe ? getContrastText(primaryColor) : (isDarkMode ? '#FFFFFF' : '#1a1c1e');
   const iconColor = isMe ? getContrastText(primaryColor) : (isLightColor(primaryColor) && !isDarkMode ? '#000000' : primaryColor);
 
-  useEffect(() => {
-    return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
-    };
-  }, [sound]);
-
-  const playSound = async () => {
-    if (sound) {
-      if (isPlaying) {
-        await sound.pauseAsync();
-        setIsPlaying(false);
-      } else {
-        await sound.playAsync();
-        setIsPlaying(true);
-      }
+  const togglePlayback = () => {
+    if (player.playing) {
+      player.pause();
     } else {
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri },
-        { shouldPlay: true }
-      );
-      setSound(newSound);
-      setIsPlaying(true);
-      newSound.setOnPlaybackStatusUpdate((status: any) => {
-        if (status.didJustFinish) {
-          setIsPlaying(false);
-          newSound.setPositionAsync(0);
-        }
-        if (status.positionMillis) setPosition(status.positionMillis);
-      });
+      player.play();
     }
   };
 
-  const formatTime = (seconds: number) => {
+  const formatTime = (ms: number) => {
+    const seconds = Math.floor(ms / 1000);
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -59,11 +33,11 @@ const VoiceMessagePlayer = React.memo(({ uri, duration, isMe, primaryColor, isDa
   return (
     <View className="flex-row items-center py-1">
       <TouchableOpacity 
-        onPress={playSound}
+        onPress={togglePlayback}
         className="w-10 h-10 rounded-full items-center justify-center"
         style={{ backgroundColor: isMe ? 'rgba(255,255,255,0.2)' : (isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)') }}
       >
-        {isPlaying ? (
+        {player.playing ? (
           <Pause size={18} color={iconColor} fill={iconColor} />
         ) : (
           <Play size={18} color={iconColor} fill={iconColor} />
@@ -74,13 +48,13 @@ const VoiceMessagePlayer = React.memo(({ uri, duration, isMe, primaryColor, isDa
            <View 
              className="h-full" 
              style={{ 
-               width: `${(position / (duration ? duration * 1000 : 1)) * 100}%`,
+               width: `${(player.currentTime / (player.duration || 1)) * 100}%`,
                backgroundColor: isMe ? getContrastText(primaryColor) : (isLightColor(primaryColor) && !isDarkMode ? '#000000' : primaryColor)
              }} 
            />
         </View>
         <Text className="text-[10px] mt-1 font-bold" style={{ color: textColor, opacity: 0.7 }}>
-          {duration ? formatTime(duration) : 'Voice Note'}
+          {player.duration ? formatTime(player.duration) : (duration ? formatTime(duration * 1000) : 'Voice Note')}
         </Text>
       </View>
     </View>
@@ -93,6 +67,7 @@ interface MessageItemProps {
   chatPartner: any;
   onOpenSnap: (msg: any) => void;
   onLongPress: (id: string) => void;
+  onReply?: (msg: any) => void;
   reactionMessageId: string | null;
   handleReaction: (msgId: string, emoji: string, currentReactions: any) => void;
   handleDeleteMessage: (id: string) => void;
@@ -101,6 +76,8 @@ interface MessageItemProps {
   isDarkMode: boolean;
   onPressMedia?: (item: any) => void;
   onVote?: (messageId: string, optionIndex: number) => void;
+  searchQuery?: string;
+  onForward?: (id: string) => void;
 }
 
 const MessageItem: React.FC<MessageItemProps> = React.memo(({ 
@@ -109,6 +86,7 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
   chatPartner, 
   onOpenSnap, 
   onLongPress, 
+  onReply,
   reactionMessageId, 
   handleReaction, 
   handleDeleteMessage, 
@@ -116,7 +94,9 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
   isGroup,
   isDarkMode,
   onPressMedia,
-  onVote
+  onVote,
+  searchQuery,
+  onForward
 }) => {
   const { width } = useWindowDimensions();
   const isSnap = item.type === 'snap';
@@ -140,6 +120,7 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
       entering={isMe ? SlideInRight.springify().mass(0.8) : SlideInLeft.springify().mass(0.8)}
       layout={Layout.springify()}
       className={`mb-6 flex-row ${isMe ? 'justify-end' : 'justify-start'}`}
+      style={{ zIndex: reactionMessageId === item.id ? 999 : 1, elevation: reactionMessageId === item.id ? 999 : 1 }}
     >
       {!isMe && (
         <View 
@@ -159,45 +140,78 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
         </View>
       )}
       <View style={{ maxWidth: width * 0.75 }}>
-        <TouchableOpacity 
-          onPress={() => {
-            if (isSnap && !isMe) {
-              onOpenSnap(item);
-            } else if (isImage || isDocument) {
-              onPressMedia?.(item);
-            } else if (isLocation && item.location) {
-              const { latitude, longitude } = item.location;
-              const url = Platform.select({
-                ios: `maps:0,0?q=${latitude},${longitude}`,
-                android: `geo:0,0?q=${latitude},${longitude}`,
-              }) || `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
-              Linking.openURL(url);
+        <Swipeable
+          containerStyle={{ overflow: 'visible' }}
+          childrenContainerStyle={{ overflow: 'visible' }}
+          renderLeftActions={() => <View style={{ width: 1 }} />} // Dummy for swipe trigger
+          onSwipeableOpen={(direction) => {
+            if (direction === 'left' && onReply && !item.isDeleted) {
+              onReply(item);
             }
           }}
-          onLongPress={() => onLongPress(item.id!)}
-          delayLongPress={300}
-          style={isMe ? {
-            backgroundColor: primaryColor,
-            shadowColor: primaryColor,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3,
-            shadowRadius: 10,
-            elevation: 4,
-          } : {
-            backgroundColor: surfaceLow,
-            shadowColor: 'rgba(0,0,0,0.1)',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.1,
-            shadowRadius: 6,
-            elevation: 2,
-            borderWidth: 1,
-            borderColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
-          }}
-          className={`px-5 py-3 rounded-2xl ${
-            isMe ? 'rounded-tr-none' : 'rounded-tl-none'
-          } ${isSnap && item.viewed ? 'opacity-40' : ''}`}
+          friction={2}
+          rightThreshold={40} 
+          leftThreshold={40}
         >
-          {item.storyReply && (
+          <TouchableOpacity 
+            onPress={() => {
+              if (item.isDeleted) return;
+              if (isSnap && !isMe) {
+                onOpenSnap(item);
+              } else if (isImage || isDocument) {
+                onPressMedia?.(item);
+              } else if (isLocation && item.location) {
+                const { latitude, longitude } = item.location;
+                const url = Platform.select({
+                  ios: `maps:0,0?q=${latitude},${longitude}`,
+                  android: `geo:0,0?q=${latitude},${longitude}`,
+                }) || `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+                Linking.openURL(url);
+              }
+            }}
+            onLongPress={() => {
+              if (!item.isDeleted) onLongPress(item.id!);
+            }}
+            delayLongPress={300}
+            disabled={item.isDeleted}
+            style={isMe ? {
+              backgroundColor: primaryColor,
+              shadowColor: primaryColor,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.3,
+              shadowRadius: 10,
+              elevation: 4,
+            } : {
+              backgroundColor: surfaceLow,
+              shadowColor: 'rgba(0,0,0,0.1)',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.1,
+              shadowRadius: 6,
+              elevation: 2,
+              borderWidth: 1,
+              borderColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
+            }}
+            className={`px-5 py-3 rounded-2xl ${
+              isMe ? 'rounded-tr-none' : 'rounded-tl-none'
+            } ${isSnap && item.viewed ? 'opacity-40' : ''}`}
+          >
+            {item.replyTo && (
+              <View 
+                className="mb-2 p-3 rounded-xl border-l-4" 
+                style={{ 
+                  backgroundColor: isMe ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                  borderLeftColor: isMe ? '#FFFFFF' : primaryColor
+                }}
+              >
+                <Text style={{ color: isMe ? '#FFFFFF' : primaryColor, fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  {item.replyTo.senderName}
+                </Text>
+                <Text numberOfLines={1} style={{ color: textColor, fontSize: 13, opacity: 0.8 }}>
+                  {item.replyTo.text}
+                </Text>
+              </View>
+            )}
+            {item.storyReply && (
              <View className="mb-3 bg-black/10 rounded-xl overflow-hidden flex-row items-center border border-white/20" style={{ maxWidth: 200 }}>
                  <Image source={{ uri: item.storyReply.imageUri }} className="w-12 h-16 bg-surface-container" resizeMode="cover" />
                  <View className="ml-3 flex-1 pr-2 py-2">
@@ -317,26 +331,27 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
                     {item.displayName}
                   </Text>
                 )}
-                <Text className="text-base font-medium" style={{ color: textColor }}>
-                {item.text}
+                <Text className={`text-base ${item.isDeleted ? 'italic opacity-60' : 'font-medium'}`} style={{ color: textColor }}>
+                {searchQuery && !item.isDeleted ? (
+                  item.text.split(new RegExp(`(${searchQuery})`, 'gi')).map((part: string, i: number) => 
+                    part.toLowerCase() === searchQuery.toLowerCase() ? (
+                      <Text key={i} style={{ backgroundColor: isDarkMode ? 'rgba(255,255,0,0.3)' : 'rgba(255,255,0,0.5)', color: textColor }}>{part}</Text>
+                    ) : (
+                      <Text key={i}>{part}</Text>
+                    )
+                  )
+                ) : (
+                  item.text
+                )}
                 </Text>
-                {isMe && (
-                  <View className="flex-row items-center self-end mt-1 space-x-1">
-                      {item.viewed ? (
-                        <View className="flex-row items-center bg-black/10 px-2 py-0.5 rounded-full" style={{ backgroundColor: isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)' }}>
-                          <CheckCheck size={12} color={getContrastText(primaryColor)} strokeWidth={3} />
-                          <Text className="text-[9px] ml-1 font-black uppercase tracking-tighter" style={{ color: getContrastText(primaryColor) }}>Read</Text>
-                        </View>
-                      ) : item.received ? (
-                        <View className="flex-row items-center bg-black/10 px-2 py-0.5 rounded-full" style={{ backgroundColor: isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)' }}>
-                          <CheckCheck size={12} color={isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.8)'} strokeWidth={2.5} />
-                          <Text className="text-[9px] ml-1 font-bold uppercase tracking-tighter" style={{ color: isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.8)' }}>Delivered</Text>
-                        </View>
+                {isMe && !isGroup && !item.isDeleted && (
+                  <View className="flex-row items-center self-end mt-1">
+                      {item.status === 'read' || item.viewed ? (
+                        <CheckCheck size={14} color="#34D399" strokeWidth={3} />
+                      ) : item.status === 'delivered' || item.received ? (
+                        <CheckCheck size={14} color={isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.5)'} strokeWidth={2} />
                       ) : (
-                        <View className="flex-row items-center bg-black/10 px-2 py-0.5 rounded-full" style={{ backgroundColor: isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)' }}>
-                          <Check size={12} color={isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.6)'} strokeWidth={2.5} />
-                          <Text className="text-[9px] ml-1 font-bold uppercase tracking-tighter" style={{ color: isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.6)' }}>Sent</Text>
-                        </View>
+                        <Check size={14} color={isLightColor(primaryColor) && !isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.5)'} strokeWidth={2} />
                       )}
                   </View>
                 )}
@@ -345,8 +360,8 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
           
           {reactionMessageId === item.id && (
             <View 
-              className="absolute -top-14 left-0 right-0 flex-row rounded-full px-3 py-2 shadow-2xl border z-50 justify-between items-center min-w-[240]"
-              style={{ backgroundColor: surfaceHigh, borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }}
+              className={`absolute -top-14 ${isMe ? 'right-0' : 'left-0'} flex-row rounded-full px-3 py-2 shadow-2xl border z-50 justify-between items-center min-w-[240]`}
+              style={{ backgroundColor: surfaceHigh, borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)', zIndex: 9999, elevation: 9999 }}
             >
               <View className="flex-row flex-1 justify-around mr-2">
                 {['❤️', '😂', '🔥', '👍', '😮', '😢'].map((emoji) => (
@@ -359,19 +374,30 @@ const MessageItem: React.FC<MessageItemProps> = React.memo(({
                   </TouchableOpacity>
                 ))}
               </View>
-              {isMe && (
-                 <TouchableOpacity 
-                  onPress={() => handleDeleteMessage(item.id!)}
-                  className="p-2 bg-red-500/10 rounded-full ml-1"
-                >
-                  <Trash size={18} color="#ff4d4d" />
-                </TouchableOpacity>
-              )}
+              <View className="flex-row items-center border-l border-white/10 pl-2 ml-1">
+                 {onForward && (
+                   <TouchableOpacity 
+                    onPress={() => onForward(item.id!)}
+                    className="p-2 bg-blue-500/10 rounded-full mr-1"
+                  >
+                    <Forward size={18} color="#3b82f6" />
+                  </TouchableOpacity>
+                 )}
+                 {isMe && (
+                   <TouchableOpacity 
+                    onPress={() => handleDeleteMessage(item.id!)}
+                    className="p-2 bg-red-500/10 rounded-full"
+                  >
+                    <Trash size={18} color="#ff4d4d" />
+                  </TouchableOpacity>
+                 )}
+              </View>
             </View>
           )}
         </TouchableOpacity>
+      </Swipeable>
 
-        {hasReactions && (
+      {hasReactions && (
           <Animated.View 
             entering={FadeIn.duration(300).springify()}
             className={`flex-row flex-wrap mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}

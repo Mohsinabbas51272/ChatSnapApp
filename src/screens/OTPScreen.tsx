@@ -6,7 +6,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { setUser } from '../store/authSlice';
 import { auth, db } from '../services/firebaseConfig';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc, setDoc, query, collection, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, query, collection, where, getDocs, updateDoc, increment, serverTimestamp, addDoc } from 'firebase/firestore';
 import Header from '../components/ui/Header';
 import Input from '../components/ui/Input';
 import { RootState } from '../store';
@@ -14,6 +14,7 @@ import { useResponsive } from '../hooks/useResponsive';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 import ScreenBackground from '../components/ui/ScreenBackground';
+import { addReferralReward } from '../services/earn';
 
 const OTPScreen = ({ navigation, route }: any) => {
   const { primaryColor, isDarkMode } = useSelector((state: RootState) => state.theme);
@@ -21,7 +22,7 @@ const OTPScreen = ({ navigation, route }: any) => {
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { phoneNumber, displayName, email, isNewUser } = route.params;
+  const { phoneNumber, displayName, email, isNewUser, referralCode } = route.params;
   const dispatch = useDispatch();
 
   const [timer, setTimer] = useState(60);
@@ -226,6 +227,12 @@ const OTPScreen = ({ navigation, route }: any) => {
       }
       
       await setDoc(userDocRef, finalUser, { merge: true });
+      
+      // Process Referral
+      if (isNewUser && referralCode && referralCode.trim().length > 5) {
+        addReferralReward(referralCode.trim(), displayName || 'New User');
+      }
+      
       dispatch(setUser(finalUser));
       
     } catch (err: any) {

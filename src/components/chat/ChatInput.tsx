@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, TextInput, TouchableOpacity, Text, Platform, Keyboard, FlatList, Alert, StyleSheet, Image as RNImage, Modal, ScrollView } from 'react-native';
 import { Send, Camera, Smile, Mic, Activity, Paperclip, Image as ImageIcon, FileText, X, MapPin, BarChart3, Plus, Trash2 } from 'lucide-react-native';
+import { useAudioRecorder } from 'expo-audio';
 import { Audio } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -19,12 +20,14 @@ const EMOJIS = [
 interface ChatInputProps {
   primaryColor: string;
   isDarkMode: boolean;
-  onSend: (type: 'text' | 'voice' | 'snap' | 'image' | 'document' | 'location' | 'poll', mediaUriOrText?: string, duration?: number, extras?: any) => Promise<void>;
+  onSend: (type: 'text' | 'voice' | 'snap' | 'image' | 'document' | 'location' | 'poll', mediaUriOrText?: string, duration?: number, extras?: any, replyTo?: any) => Promise<void>;
   onOpenCamera: () => void;
   onTyping: (text: string) => void;
   inputText: string;
   setInputText: (text: string) => void;
   isSending: boolean;
+  replyTo?: { messageId: string; text: string; senderName: string } | null;
+  onCancelReply?: () => void;
 }
 
 const ChatInput: React.FC<ChatInputProps> = ({
@@ -36,15 +39,35 @@ const ChatInput: React.FC<ChatInputProps> = ({
   inputText,
   setInputText,
   isSending,
+  replyTo,
+  onCancelReply,
 }) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const recordingRef = useRef<Audio.Recording | null>(null);
+  const audioRecorder = useAudioRecorder({
+    extension: '.m4a',
+    sampleRate: 44100,
+    numberOfChannels: 2,
+    bitRate: 128000,
+    android: {
+        extension: '.m4a',
+        outputFormat: 'mpeg4',
+        audioEncoder: 'aac',
+    },
+    ios: {
+        extension: '.m4a',
+        outputFormat: 'mpeg4',
+        audioQuality: 96,
+    },
+    web: {
+        mimeType: 'audio/webm',
+    }
+  });
   const [recordingDuration, setRecordingDuration] = useState(0);
   const recordingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [localText, setLocalText] = useState(inputText);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<TextInput>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
   
@@ -62,15 +85,21 @@ const ChatInput: React.FC<ChatInputProps> = ({
     return () => {
       keyboardDidShowListener.remove();
       if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
-      if (recordingRef.current) {
-        recordingRef.current.stopAndUnloadAsync().catch(() => {});
-      }
     };
   }, []);
 
   useEffect(() => {
     if (inputText === '') setLocalText('');
   }, [inputText]);
+  
+  // Auto-focus when replying
+  useEffect(() => {
+    if (replyTo) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }
+  }, [replyTo]);
   
   const startRecording = async () => {
     try {
@@ -81,12 +110,14 @@ const ChatInput: React.FC<ChatInputProps> = ({
           playsInSilentModeIOS: true,
         });
 
-        const { recording: newRecording } = await Audio.Recording.createAsync(
-          Audio.RecordingOptionsPresets.HIGH_QUALITY
-        );
+        // Only prepare if not already prepared
+        const status = audioRecorder.getStatus();
+        if (!status.canRecord && !status.isRecording) {
+            await audioRecorder.prepareToRecordAsync();
+        }
         
-        recordingRef.current = newRecording;
-        setIsRecording(true);
+        audioRecorder.record();
+        
         setRecordingDuration(0);
         
         recordingIntervalRef.current = setInterval(() => {
@@ -97,30 +128,23 @@ const ChatInput: React.FC<ChatInputProps> = ({
       }
     } catch (err) {
       console.error('Failed to start recording', err);
-      setIsRecording(false);
     }
   };
 
   const stopRecording = async () => {
-    const currentRec = recordingRef.current;
-    if (!currentRec) {
-        setIsRecording(false);
-        return;
-    }
+    if (!audioRecorder.isRecording) return;
 
-    setIsRecording(false);
     if (recordingIntervalRef.current) {
       clearInterval(recordingIntervalRef.current);
       recordingIntervalRef.current = null;
     }
     
     const finalDuration = recordingDuration;
-    recordingRef.current = null;
     setRecordingDuration(0);
     
     try {
-      await currentRec.stopAndUnloadAsync();
-      const uri = currentRec.getURI();
+      await audioRecorder.stop();
+      const uri = audioRecorder.uri;
       if (uri && finalDuration >= 1) {
         await onSend('voice', uri, finalDuration);
       }
@@ -155,14 +179,14 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
   const handleSendPress = () => {
     if (previewImage) {
-      onSend('image', previewImage);
+      onSend('image', previewImage, undefined, undefined, replyTo);
       setPreviewImage(null);
       return;
     }
     const trimmed = localText.trim();
     if (trimmed.length > 0 && !isSending) {
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
-      onSend('text', trimmed);
+      onSend('text', trimmed, undefined, undefined, replyTo);
       setLocalText('');
     }
   };
@@ -263,7 +287,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
   const subTextColor = isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)';
   const accentColor = isLightColor(primaryColor) && !isDarkMode ? '#000000' : (isDarkMode ? '#FFFFFF' : primaryColor);
   const inputBg = isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)';
-  const sendButtonColors = isDarkMode ? ['#FFFFFF', '#E0E0E0'] : [primaryColor, `${primaryColor}BD`];
+  const sendButtonColors: readonly [string, string] = isDarkMode ? ['#FFFFFF', '#E0E0E0'] : [primaryColor, `${primaryColor}BD`];
   const sendIconColor = isDarkMode ? '#000000' : getContrastText(primaryColor);
 
   return (
@@ -353,6 +377,23 @@ const ChatInput: React.FC<ChatInputProps> = ({
         </Animated.View>
       )}
 
+      {/* REPLY PREVIEW BOARD */}
+      {replyTo && (
+        <Animated.View 
+          entering={FadeIn.duration(200)} 
+          exiting={FadeOut.duration(200)}
+          style={[styles.replyBoard, { backgroundColor: isDarkMode ? '#1a1c24' : '#FFFFFF', borderLeftColor: primaryColor }]}
+        >
+          <View style={styles.replyContent}>
+            <Text style={[styles.replyAuthor, { color: primaryColor }]}>Replying to {replyTo.senderName}</Text>
+            <Text style={[styles.replyText, { color: subTextColor }]} numberOfLines={1}>{replyTo.text}</Text>
+          </View>
+          <TouchableOpacity onPress={onCancelReply} style={styles.cancelReply}>
+            <X size={16} color={subTextColor} />
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
       {/* IMAGE PREVIEW (Sticky within Bar) */}
       {previewImage && (
         <Animated.View 
@@ -394,21 +435,22 @@ const ChatInput: React.FC<ChatInputProps> = ({
           </TouchableOpacity>
 
           <TextInput
-            placeholder={isRecording ? `0:${recordingDuration < 10 ? '0' : ''}${recordingDuration} Rec` : "Say something..."}
+            ref={inputRef}
+            placeholder={audioRecorder.isRecording ? `0:${recordingDuration < 10 ? '0' : ''}${recordingDuration} Rec` : "Say something..."}
             placeholderTextColor={subTextColor}
             multiline
-            value={isRecording ? "" : localText}
+            value={audioRecorder.isRecording ? "" : localText}
             onChangeText={handleTextChange}
             onFocus={() => { setShowEmojiPicker(false); setShowAttachMenu(false); }}
-            editable={!isSending && !isRecording}
+            editable={!isSending && !audioRecorder.isRecording}
             style={[styles.inputField, { color: textColor }]}
           />
         </View>
 
         <TouchableOpacity 
-          onPress={localText.trim().length > 0 ? handleSendPress : undefined}
-          onLongPress={localText.trim().length === 0 ? startRecording : undefined}
-          onPressOut={localText.trim().length === 0 ? stopRecording : undefined}
+          onPress={(localText.trim().length > 0 || previewImage) ? handleSendPress : undefined}
+          onLongPress={(localText.trim().length === 0 && !previewImage) ? startRecording : undefined}
+          onPressOut={(localText.trim().length === 0 && !previewImage) ? stopRecording : undefined}
           disabled={isSending}
           className="ml-2 overflow-hidden rounded-full"
           activeOpacity={0.8}
@@ -419,10 +461,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
           >
             {isSending ? (
               <Activity size={18} color={sendIconColor} />
-            ) : localText.trim().length > 0 ? (
+            ) : (localText.trim().length > 0 || previewImage) ? (
               <Send size={18} color={sendIconColor} fill={sendIconColor} />
             ) : (
-              <Mic size={20} color={isRecording ? '#ff4d4d' : sendIconColor} />
+              <Mic size={20} color={audioRecorder.isRecording ? '#ff4d4d' : sendIconColor} />
             )}
           </LinearGradient>
         </TouchableOpacity>
@@ -539,6 +581,38 @@ const styles = StyleSheet.create({
   previewImage: {
     width: '100%',
     height: '100%',
+  },
+  replyBoard: {
+    marginBottom: 8,
+    padding: 10,
+    borderRadius: 16,
+    borderLeftWidth: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    marginHorizontal: 4,
+  },
+  replyContent: {
+    flex: 1,
+  },
+  replyAuthor: {
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+  replyText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  cancelReply: {
+    padding: 4,
+    marginLeft: 8,
   }
 });
 

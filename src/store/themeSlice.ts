@@ -6,6 +6,8 @@ export interface ThemeState {
   themeName: string;
   mood: string;
   isDarkMode: boolean;
+  chatWallpaper?: string | null;
+  chatWallpaperOpacity: number;
 }
 
 const initialState: ThemeState = {
@@ -13,6 +15,8 @@ const initialState: ThemeState = {
   themeName: 'Pure White',
   mood: 'Chill',
   isDarkMode: false,
+  chatWallpaper: null,
+  chatWallpaperOpacity: 0.2,
 };
 
 const moodMap: { [key: string]: { color: string; name: string } } = {
@@ -32,6 +36,8 @@ const persistTheme = (state: ThemeState) => {
     themeName: state.themeName,
     mood: state.mood,
     isDarkMode: state.isDarkMode,
+    chatWallpaper: state.chatWallpaper,
+    chatWallpaperOpacity: state.chatWallpaperOpacity,
   })).catch(() => {});
 };
 
@@ -57,15 +63,28 @@ const themeSlice = createSlice({
         persistTheme(state);
       }
     },
-    restoreTheme: (state, action: PayloadAction<ThemeState>) => {
+    restoreTheme: (state, action: PayloadAction<any>) => {
       state.primaryColor = action.payload.primaryColor;
       state.themeName = action.payload.themeName;
       state.mood = action.payload.mood;
       state.isDarkMode = action.payload.isDarkMode || false;
+      state.chatWallpaper = action.payload.chatWallpaper || null;
+      state.chatWallpaperOpacity = action.payload.chatWallpaperOpacity ?? 0.2;
+    },
+    setChatWallpaper: (state, action: PayloadAction<{ uri: string | null; opacity?: number }>) => {
+      state.chatWallpaper = action.payload.uri;
+      if (action.payload.opacity !== undefined) {
+        state.chatWallpaperOpacity = action.payload.opacity;
+      }
+      persistTheme(state);
+    },
+    setWallpaperOpacity: (state, action: PayloadAction<number>) => {
+      state.chatWallpaperOpacity = action.payload;
+      persistTheme(state);
     },
   },
 });
 
-export const { setTheme, setMood, restoreTheme, toggleDarkMode } = themeSlice.actions;
+export const { setTheme, setMood, restoreTheme, toggleDarkMode, setChatWallpaper, setWallpaperOpacity } = themeSlice.actions;
 export default themeSlice.reducer;
 

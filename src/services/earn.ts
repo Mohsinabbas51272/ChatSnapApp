@@ -7,6 +7,8 @@ export interface WalletData {
   lastResetDate: string; // YYYY-MM-DD
   monthlyCoinsEarned?: number;
   lastMonthStr?: string; // YYYY-MM
+  lastLoginDate?: string; // YYYY-MM-DD
+  lastAdDate?: string; // YYYY-MM-DD
 }
 
 export interface Transaction {
@@ -18,8 +20,8 @@ export interface Transaction {
   status: 'completed' | 'pending' | 'failed';
 }
 
-export const DAILY_LIMIT = 20;
-export const MONTHLY_LIMIT = 600;
+export const DAILY_LIMIT = 30;
+export const MONTHLY_LIMIT = 900;
 export const MIN_WITHDRAWAL = 300;
 
 export const initializeWallet = async (uid: string) => {
@@ -89,6 +91,14 @@ export const addCoins = async (uid: string, amount: number, source: string): Pro
         currentData.lastMonthStr = thisMonth;
       }
 
+      // TASK ABUSE PREVENTION CHECK
+      if (source === 'Daily Login' && currentData.lastLoginDate === today) {
+        throw new Error('You have already claimed your daily check-in reward today.');
+      }
+      if (source === 'Watched Video Ad' && currentData.lastAdDate === today) {
+        throw new Error('You have already claimed your ad reward today.');
+      }
+
       // Check daily limit
       if (currentData.dailyCoinsEarned + amount > DAILY_LIMIT) {
         throw new Error(`Daily limit exceeded (Max ${DAILY_LIMIT} coins/day)`);
@@ -104,13 +114,19 @@ export const addCoins = async (uid: string, amount: number, source: string): Pro
       const newDailyEarned = currentData.dailyCoinsEarned + amount;
       const newMonthlyEarned = (currentData.monthlyCoinsEarned || 0) + amount;
 
-      transaction.set(walletRef, {
+      const updateData: any = {
         balance: newBalance,
         dailyCoinsEarned: newDailyEarned,
         lastResetDate: today,
         monthlyCoinsEarned: newMonthlyEarned,
         lastMonthStr: thisMonth
-      }, { merge: true });
+      };
+
+      // Set task completion dates
+      if (source === 'Daily Login') updateData.lastLoginDate = today;
+      if (source === 'Watched Video Ad') updateData.lastAdDate = today;
+
+      transaction.set(walletRef, updateData, { merge: true });
 
       // Add transaction record
       const newTxRef = doc(txRef);
@@ -126,6 +142,51 @@ export const addCoins = async (uid: string, amount: number, source: string): Pro
     return { success: true, message: `Earned ${amount} coins!` };
   } catch (error: any) {
     return { success: false, message: error.message };
+  }
+};
+
+export const addReferralReward = async (referrerId: string, referralName: string) => {
+  const amount = 30;
+  const source = `Referral Reward: ${referralName}`;
+  const walletRef = doc(db, 'users', referrerId, 'wallet', 'data');
+  const txRef = collection(db, 'users', referrerId, 'transactions');
+  const userRef = doc(db, 'users', referrerId);
+
+  try {
+    await runTransaction(db, async (transaction) => {
+      const walletDoc = await transaction.get(walletRef);
+      const userDoc = await transaction.get(userRef);
+
+      if (!userDoc.exists()) return;
+
+      let currentBalance = 0;
+      if (walletDoc.exists()) {
+        currentBalance = walletDoc.data().balance || 0;
+      }
+
+      // Update wallet
+      transaction.set(walletRef, { 
+        balance: currentBalance + amount 
+      }, { merge: true });
+
+      // Update user document points/referralCount
+      transaction.update(userRef, {
+        points: (userDoc.data().points || 0) + amount,
+        referralCount: (userDoc.data().referralCount || 0) + 1
+      });
+
+      // Add transaction
+      const newTxRef = doc(txRef);
+      transaction.set(newTxRef, {
+        amount,
+        type: 'earn',
+        source,
+        timestamp: serverTimestamp(),
+        status: 'completed'
+      });
+    });
+  } catch (error) {
+    console.error('Referral Reward Error:', error);
   }
 };
 

@@ -1,4 +1,4 @@
-import { db, storage, auth } from './firebaseConfig';
+import { db, auth } from './firebaseConfig';
 import { 
   collection, 
   addDoc, 
@@ -30,6 +30,15 @@ export interface Story {
   timestamp: any;
   viewers?: StoryViewerInfo[];
   viewCount?: number;
+}
+
+export interface Highlight {
+  id?: string;
+  userId: string;
+  name: string;
+  stories: Story[];
+  coverImage: string;
+  timestamp: any;
 }
 
 import * as FileSystem from 'expo-file-system/legacy';
@@ -148,4 +157,49 @@ export const recordStoryView = async (storyId: string, userId: string, displayNa
   } catch (error) {
     console.error('Error recording story view:', error);
   }
+};
+
+export const createHighlight = async (userId: string, name: string, stories: Story[]) => {
+  try {
+    const highlightsRef = collection(db, 'highlights');
+    await addDoc(highlightsRef, {
+      userId,
+      name,
+      stories,
+      coverImage: stories[0]?.imageUri || '',
+      timestamp: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error('Error creating highlight:', error);
+    throw error;
+  }
+};
+
+export const fetchUserHighlights = async (userId: string): Promise<Highlight[]> => {
+  const highlightsRef = collection(db, 'highlights');
+  const q = query(highlightsRef, where('userId', '==', userId));
+  const snap = await getDocs(q);
+  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Highlight));
+};
+
+export const deleteHighlight = async (highlightId: string) => {
+  const ref = doc(db, 'highlights', highlightId);
+  await deleteDoc(ref);
+};
+
+export const fetchExpiredStories = async (userId: string): Promise<Story[]> => {
+  const storiesRef = collection(db, 'stories');
+  const q = query(storiesRef, where('userId', '==', userId));
+  const snap = await getDocs(q);
+  
+  const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
+  
+  // Filter for expired stories (older than 24h)
+  return snap.docs
+    .map(doc => ({ id: doc.id, ...doc.data() } as Story))
+    .filter(s => {
+      const ts = s.timestamp?.toMillis ? s.timestamp.toMillis() : (s.timestamp?.seconds ? s.timestamp.seconds * 1000 : 0);
+      return ts < twentyFourHoursAgo;
+    })
+    .sort((a, b) => (b.timestamp?.seconds ?? 0) - (a.timestamp?.seconds ?? 0));
 };

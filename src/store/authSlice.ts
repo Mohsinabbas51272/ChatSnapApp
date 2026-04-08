@@ -11,6 +11,9 @@ interface UserState {
   loading: boolean;
   error: string | null;
   secretPassword?: string | null;
+  isAppLockEnabled?: boolean;
+  pinnedChats: string[];
+  referralCount?: number;
 }
 
 const initialState: UserState = {
@@ -23,6 +26,8 @@ const initialState: UserState = {
   loading: false,
   error: null,
   secretPassword: null,
+  pinnedChats: [],
+  isAppLockEnabled: false,
 };
 
 const authSlice = createSlice({
@@ -32,13 +37,15 @@ const authSlice = createSlice({
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.loading = action.payload;
     },
-    setUser: (state, action: PayloadAction<{ uid: string; phoneNumber: string | null; displayName?: string | null; photoURL?: string | null; isNewUser?: boolean; secretPassword?: string | null }>) => {
+    setUser: (state, action: PayloadAction<{ uid: string; phoneNumber: string | null; displayName?: string | null; photoURL?: string | null; isNewUser?: boolean; secretPassword?: string | null; pinnedChats?: string[]; isAppLockEnabled?: boolean }>) => {
       state.uid = action.payload.uid;
       state.phoneNumber = action.payload.phoneNumber;
       state.displayName = action.payload.displayName || null;
       state.photoURL = action.payload.photoURL || null;
       state.isNewUser = action.payload.isNewUser || false;
       state.secretPassword = action.payload.secretPassword || null;
+      state.pinnedChats = action.payload.pinnedChats || [];
+      state.isAppLockEnabled = action.payload.isAppLockEnabled || false;
       state.isAuthenticated = true;
       state.loading = false;
       state.error = null;
@@ -51,8 +58,29 @@ const authSlice = createSlice({
         photoURL: state.photoURL,
         isNewUser: state.isNewUser,
         secretPassword: state.secretPassword,
+        pinnedChats: state.pinnedChats,
+        isAppLockEnabled: state.isAppLockEnabled,
       };
       AsyncStorage.setItem('user', JSON.stringify(userData));
+    },
+    setAppLock: (state, action: PayloadAction<boolean>) => {
+      state.isAppLockEnabled = action.payload;
+      AsyncStorage.getItem('user').then(val => {
+        if (val) {
+          const parsed = JSON.parse(val);
+          AsyncStorage.setItem('user', JSON.stringify({ ...parsed, isAppLockEnabled: action.payload }));
+        }
+      });
+    },
+    setPinnedChats: (state, action: PayloadAction<string[]>) => {
+      state.pinnedChats = action.payload;
+      // Re-persist since this is a change to user data
+      AsyncStorage.getItem('user').then(val => {
+        if (val) {
+          const parsed = JSON.parse(val);
+          AsyncStorage.setItem('user', JSON.stringify({ ...parsed, pinnedChats: action.payload }));
+        }
+      });
     },
     setError: (state, action: PayloadAction<string>) => {
       state.error = action.payload;
@@ -73,5 +101,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { setLoading, setUser, setError, logout } = authSlice.actions;
+export const { setLoading, setUser, setError, logout, setPinnedChats, setAppLock } = authSlice.actions;
 export default authSlice.reducer;

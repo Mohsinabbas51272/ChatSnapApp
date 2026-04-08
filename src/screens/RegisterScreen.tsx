@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, KeyboardAvoidingView, Platform, TextInput, StatusBar, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { ArrowLeft, User, Phone, Mail } from 'lucide-react-native';
+import { ArrowLeft, User, Phone, Mail, Gift } from 'lucide-react-native';
 import Animated, { FadeInLeft } from 'react-native-reanimated';
 import Button from '../components/ui/Button';
 import Header from '../components/ui/Header';
@@ -20,6 +20,7 @@ const RegisterScreen = ({ navigation }: any) => {
     const [phoneNumber, setPhoneNumber] = useState('');
     const [displayName, setDisplayName] = useState('');
     const [email, setEmail] = useState('');
+    const [referralCode, setReferralCode] = useState('');
     const [loading, setLoading] = useState(false);
 
     const handleNext = async () => {
@@ -41,7 +42,7 @@ const RegisterScreen = ({ navigation }: any) => {
                 // Trigger email sending via EmailJS API directly
                 await sendVerificationEmail(email, code);
 
-                navigation.navigate('OTP', { phoneNumber, displayName, email: email.toLowerCase(), isNewUser: true });
+                navigation.navigate('OTP', { phoneNumber, displayName, email: email.toLowerCase(), isNewUser: true, referralCode });
             } catch (error: any) {
                 alert('Connection error: ' + error.message);
             } finally {
@@ -161,12 +162,37 @@ const RegisterScreen = ({ navigation }: any) => {
                                 />
                             </View>
                         </View>
+                        <View className="mt-6">
+                            <Text className="text-onSurface-variant text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Referral Code (Optional)</Text>
+                            <View className="flex-row items-center bg-surface-container-low dark:bg-black rounded-2xl px-5 py-4">
+                                <Gift size={20} color={primaryColor} />
+                                <TextInput 
+                                    className="flex-1 ml-3 text-xl font-bold text-onSurface dark:text-white"
+                                    placeholder="Enter Friend's Code"
+                                    placeholderTextColor="rgba(255,255,255,0.2)"
+                                    autoCapitalize="none"
+                                    value={referralCode}
+                                    onChangeText={setReferralCode}
+                                />
+                            </View>
+                        </View>
                     </View>
 
                     <View className="flex-1 justify-end pb-8">
-                        <Text className="text-onSurface-variant/40 text-[10px] text-center mb-6 leading-4 font-bold">
-                            By signing up, you agree to our Terms of Service and Privacy Policy.
-                        </Text>
+                        <View className="flex-row items-center justify-center flex-wrap mb-6 px-4">
+                            <Text className="text-onSurface-variant/40 text-[10px] leading-4 font-bold">
+                                By signing up, you agree to our{' '}
+                            </Text>
+                            <TouchableOpacity onPress={() => navigation.navigate('TermsOfService')}>
+                                <Text className="text-[10px] leading-4 font-black" style={{ color: primaryColor }}>Terms of Service</Text>
+                            </TouchableOpacity>
+                            <Text className="text-onSurface-variant/40 text-[10px] leading-4 font-bold">
+                                {' '}and{' '}
+                            </Text>
+                            <TouchableOpacity onPress={() => navigation.navigate('PrivacyPolicy')}>
+                                <Text className="text-[10px] leading-4 font-black" style={{ color: primaryColor }}>Privacy Policy</Text>
+                            </TouchableOpacity>
+                        </View>
                         <Button 
                             title={loading ? "SENDING CODE..." : "CONTINUE"} 
                             onPress={handleNext}

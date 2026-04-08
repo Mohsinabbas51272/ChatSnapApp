@@ -7,7 +7,7 @@ export type RootStackParamList = {
   Landing: undefined;
   Register: undefined;
   Login: undefined;
-  OTP: { phoneNumber: string; displayName: string; email: string; isNewUser: boolean };
+  OTP: { phoneNumber: string; displayName: string; email: string; isNewUser: boolean; referralCode?: string };
   Home: undefined;
   Chat: { user?: any; group?: any; isSecret?: boolean };
   ProfileSetup: { isFromSettings?: boolean };
@@ -18,6 +18,12 @@ export type RootStackParamList = {
   QRScanner: undefined;
   AdminPanel: undefined;
   Wallet: undefined;
+  Call: { callId: string; isIncoming: boolean; partnerName: string; partnerPhotoURL?: string | null; type: 'voice' | 'video' };
+  MediaGallery: { conversationId: string; partnerName: string };
+  PrivacyPolicy: undefined;
+  TermsOfService: undefined;
+  WallpaperSettings: undefined;
+  ThemeSettings: undefined;
 };
 
 export type HomeTabParamList = {

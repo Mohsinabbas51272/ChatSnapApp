@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StatusBar, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StatusBar, StyleSheet, Image as RNImage } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft } from 'lucide-react-native';
 import { useSelector } from 'react-redux';
@@ -15,6 +15,8 @@ interface HeaderProps {
   rightElement?: React.ReactNode;
   transparent?: boolean;
   navigation?: any;
+  avatar?: string;
+  isOnline?: boolean;
 }
 
 const Header: React.FC<HeaderProps> = React.memo(({ 
@@ -23,7 +25,9 @@ const Header: React.FC<HeaderProps> = React.memo(({
   showBack = false, 
   rightElement,
   transparent = false,
-  navigation
+  navigation,
+  avatar,
+  isOnline
 }) => {
   const insets = useSafeAreaInsets();
   const { primaryColor, isDarkMode } = useSelector((state: RootState) => state.theme);
@@ -70,25 +74,40 @@ const Header: React.FC<HeaderProps> = React.memo(({
           )}
         </View>
 
-        <View className="flex-1 items-center justify-center px-2">
-          {title && (
-            <Text
-              className={`font-black tracking-[1px] text-center ${isTablet ? 'text-3xl' : 'text-xl'}`}
-              numberOfLines={1}
-              style={{ color: '#FFFFFF', textShadowColor: 'rgba(0,0,0,0.1)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 }}
-            >
-              {title}
-            </Text>
+        <View className="flex-1 flex-row items-center px-2">
+          {avatar && (
+            <View className="relative mr-3">
+              <View className="w-10 h-10 rounded-full bg-white/20 overflow-hidden border border-white/10">
+                <RNImage source={{ uri: avatar }} className="w-full h-full" />
+              </View>
+              {isOnline && (
+                <View 
+                  className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#10B981]" 
+                  style={{ backgroundColor: '#10B981', borderColor: isDarkMode ? '#0f111a' : primaryColor }}
+                />
+              )}
+            </View>
           )}
-          {subtitle && (
-            <Text
-              className="text-[10px] font-black uppercase tracking-[3px] mt-1 opacity-80"
-              numberOfLines={1}
-              style={{ color: '#FFFFFF' }}
-            >
-              {subtitle}
-            </Text>
-          )}
+          <View className="flex-1">
+            {title && (
+              <Text
+                className={`font-black tracking-[1px] ${isTablet ? 'text-2xl' : 'text-lg'}`}
+                numberOfLines={1}
+                style={{ color: '#FFFFFF', textShadowColor: 'rgba(0,0,0,0.1)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 }}
+              >
+                {title}
+              </Text>
+            )}
+            {subtitle && (
+              <Text
+                className="text-[9px] font-black uppercase tracking-[2px] mt-0.5 opacity-80"
+                numberOfLines={1}
+                style={{ color: '#FFFFFF' }}
+              >
+                {subtitle}
+              </Text>
+            )}
+          </View>
         </View>
 
         <View className="min-w-[48px] flex-row items-center justify-end">

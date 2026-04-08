@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, RefreshControl, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { MessageCircle, Users, CircleDashed, Settings as SettingsIcon, Search, Camera, UserRound, ChevronLeft, Gift } from 'lucide-react-native';
+import { MessageCircle, Users, CircleDashed, Settings as SettingsIcon, Search, Camera, UserRound, ChevronLeft, Gift, Phone } from 'lucide-react-native';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
 import { fetchStories, uploadStory, deleteStory, Story, recordStoryView } from '../services/stories';
@@ -12,6 +12,7 @@ import StoryList, { GroupedStory } from '../components/StoryList';
 import SnapCameraScreen from '../components/SnapCameraScreen';
 import SnapViewer from '../components/SnapViewer';
 import ContactsScreen from './ContactsScreen';
+import CallsScreen from './CallsScreen';
 import ConversationsList from '../components/ConversationsList';
 import SettingsScreen from './SettingsScreen';
 import EarnScreen from './EarnScreen';
@@ -23,6 +24,7 @@ import { RootStackScreenProps } from '../types/navigation';
 import { isLightColor, getContrastText } from '../services/colors';
 import FloatingTabBar from '../components/ui/FloatingTabBar';
 import ShimmerPlaceholder from '../components/ui/ShimmerPlaceholder';
+import SearchOverlay from '../components/SearchOverlay';
 
 const Tab = createBottomTabNavigator();
 
@@ -139,6 +141,7 @@ const StoriesScreen = ({ friends }: { friends: string[] }) => {
         user.uid,
         story.userId,
         text,
+        user.displayName || 'Someone',
         'text',
         undefined,
         undefined,
@@ -302,6 +305,7 @@ const HomeScreen = ({ route, navigation }: RootStackScreenProps<'Home'>) => {
     'Chats': 'ChatSnap',
     'Stories': 'Discover',
     'Contacts': 'Contacts',
+    'Calls': 'Call History',
     'Settings': 'Settings',
     'Earn': 'Earn Rewards'
   };
@@ -315,44 +319,25 @@ const HomeScreen = ({ route, navigation }: RootStackScreenProps<'Home'>) => {
   return (
     <ScreenBackground>
       <View className="flex-1">
-        {showSearch ? (
-          <SafeAreaView edges={['top']} style={{ backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }}>
-            <View style={getResponsiveContainerStyle()} className="flex-row items-center px-4 py-3">
-              <TouchableOpacity className="p-2 mr-2" onPress={() => { setShowSearch(false); setSearchQuery(''); }}>
-                <ChevronLeft size={24} color={isDarkMode ? 'white' : '#1a1c1e'} />
-              </TouchableOpacity>
-              <View 
-                className="flex-1 h-12 rounded-2xl flex-row items-center px-4" 
-                style={{ backgroundColor: isDarkMode ? '#121212' : '#F0F2FA' }}
-              >
-                <Search size={20} color={isDarkMode ? 'white' : '#737580'} />
-                <TextInput 
-                  className="flex-1 ml-2 font-bold h-full"
-                  style={{ color: isDarkMode ? 'white' : '#1a1c1e' }}
-                  placeholder={`Search ${activeTab}...`}
-                  placeholderTextColor={isDarkMode ? 'rgba(255,255,255,0.6)' : '#737580'}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  autoFocus
-                />
-              </View>
-            </View>
-          </SafeAreaView>
-        ) : (
-          <Header 
-            navigation={navigation}
-            title={titles[activeTab] || 'ChatSnap'} 
-            rightElement={
-              <TouchableOpacity 
-                onPress={() => setShowSearch(true)} 
-                className="p-2 rounded-full" 
-                style={{ backgroundColor: isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.05)' }}
-              >
-                <Search size={20} color={isDarkMode ? 'white' : '#1a1c1e'} />
-              </TouchableOpacity>
-            }
-          />
-        )}
+        <Header 
+          navigation={navigation}
+          title={titles[activeTab] || 'ChatSnap'} 
+          rightElement={
+            <TouchableOpacity 
+              onPress={() => setShowSearch(true)} 
+              className="p-2 rounded-full" 
+              style={{ backgroundColor: isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.05)' }}
+            >
+              <Search size={20} color={isDarkMode ? 'white' : '#1a1c1e'} />
+            </TouchableOpacity>
+          }
+        />
+
+        <SearchOverlay 
+          visible={showSearch}
+          onClose={() => setShowSearch(false)}
+          navigation={navigation}
+        />
 
         <Tab.Navigator 
           tabBar={(props) => (
@@ -412,6 +397,18 @@ const HomeScreen = ({ route, navigation }: RootStackScreenProps<'Home'>) => {
           >
             {(props) => <ContactsScreen {...props} searchQuery={searchQuery} />}
           </Tab.Screen>
+
+          <Tab.Screen 
+            name="Calls" 
+            component={CallsScreen} 
+            options={{
+              tabBarIcon: ({ color, focused }) => (
+                <View style={[focused ? FOCUSED_ICON_STYLE : UNFOCUSED_ICON_STYLE, { backgroundColor: iconBgOnNav(focused) }]}>
+                  <Phone size={22} color={iconOnNav(focused)} fill={focused && isDarkMode ? 'white' : 'transparent'} />
+                </View>
+              ),
+            }}
+          />
 
           <Tab.Screen 
             name="Earn" 

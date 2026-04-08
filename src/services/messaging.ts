@@ -14,7 +14,9 @@ import {
   or,
   and,
   deleteField,
-  increment
+  increment,
+  arrayUnion,
+  getDocs
 } from 'firebase/firestore';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { db, auth } from './firebaseConfig';
@@ -30,11 +32,19 @@ export interface Message {
   timestamp: any;
   viewed: boolean;
   received?: boolean;
+  status? : 'sent' | 'delivered' | 'read';
   readAt?: any;
   reactions?: { [key: string]: string[] };
   timer?: number;
   duration?: number;
   filter?: string;
+  isDeleted?: boolean;
+  deletedBy?: string[];
+  replyTo?: {
+    messageId: string;
+    text: string;
+    senderName: string;
+  };
   storyReply?: {
     storyId: string;
     imageUri: string;
@@ -70,16 +80,20 @@ const convertToBase64 = async (uri: string, type: 'snap' | 'image' | 'voice'): P
   }
 };
 
+import { sendPushNotification } from './notifications';
+
 export const sendMessage = async (
   senderId: string, 
   receiverId: string, 
   text: string, 
+  senderName: string = 'Someone',
   type: 'text' | 'image' | 'snap' | 'voice' | 'document' | 'location' | 'poll' = 'text', 
-  timer?: number,
   duration?: number,
   filter?: string,
+  replyTo?: { messageId: string; text: string; senderName: string },
   storyReply?: Message['storyReply'],
-  locationAndPoll?: any
+  locationAndPoll?: any,
+  timer?: number
 ) => {
   console.log('[DEBUG] sendMessage entered with senderId:', senderId, 'receiverId:', receiverId, 'type:', type);
   try {
@@ -108,8 +122,10 @@ export const sendMessage = async (
       timestamp: serverTimestamp(),
       viewed: false,
       received: false,
+      status: 'sent',
     };
 
+    if (replyTo) messageData.replyTo = replyTo;
     if (timer) messageData.timer = timer;
     if (duration) messageData.duration = duration;
     if (filter) messageData.filter = filter;
@@ -120,6 +136,19 @@ export const sendMessage = async (
     console.log('[DEBUG] Payload prepared for addDoc, attempting to insert');
     await addDoc(messagesRef, messageData);
     console.log('[DEBUG] addDoc successful');
+
+    // Send Push Notification to recipient
+    let notificationBody = type === 'text' ? text : `Bheja hai ek ${type}`;
+    if (type === 'snap') notificationBody = 'Sent you a snap! 👻';
+    if (type === 'image') notificationBody = 'Sent you a photo! 📸';
+    if (type === 'voice') notificationBody = 'Sent a voice note! 🎙️';
+    
+    sendPushNotification(
+      receiverId,
+      senderName,
+      notificationBody,
+      { type: 'chat', senderId, conversationId }
+    );
 
     // Increment snap counter if message is a snap or image (side-effect)
     if (type === 'snap' || type === 'image') {
@@ -140,6 +169,51 @@ export const sendMessage = async (
   } catch (error) {
     console.error('[DEBUG] Error sending message caught in messaging.ts:', error);
   }
+};
+
+export const forwardMessage = async (
+  message: Message,
+  targetId: string,
+  senderId: string,
+  senderName: string,
+  isGroup: boolean = false
+) => {
+  try {
+    if (isGroup) {
+      // Logic for forwarding to group (if group services available)
+      // For now, focusing on private chats for task simplicity or if supported by generic send
+    } else {
+      await sendMessage(
+        senderId,
+        targetId,
+        message.text,
+        senderName,
+        message.type,
+        message.duration,
+        message.filter,
+        undefined, // don't forward reply context usually
+        undefined, // don't forward story reply context usually
+        message.type === 'location' ? message.location : (message.type === 'poll' ? message.poll : undefined)
+      );
+    }
+    return true;
+  } catch (error) {
+    console.error('Failed to forward message:', error);
+    return false;
+  }
+};
+
+export const fetchChatMedia = async (conversationId: string): Promise<Message[]> => {
+  const messagesRef = collection(db, 'messages');
+  const q = query(
+    messagesRef,
+    where('conversationId', '==', conversationId),
+    where('type', 'in', ['image', 'snap']),
+    orderBy('timestamp', 'desc')
+  );
+
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
 };
 
 export const addReaction = async (messageId: string, emoji: string, userId: string, currentReactions: any = {}) => {
@@ -167,6 +241,7 @@ export const subscribeToMessages = (
   userId1: string, 
   userId2: string, 
   callback: (messages: Message[]) => void,
+  limitCount: number = 30,
   onNewMessage?: (message: Message) => void
 ) => {
   if (!userId1 || !userId2 || !auth.currentUser) return () => {};
@@ -174,10 +249,12 @@ export const subscribeToMessages = (
   const conversationId = [userId1, userId2].sort().join('_');
   const messagesRef = collection(db, 'messages');
   
-  // Remove orderBy to avoid composite index requirement
+  // Added orderBy and limit for performance
   const q = query(
     messagesRef,
-    where('conversationId', '==', conversationId)
+    where('conversationId', '==', conversationId),
+    orderBy('timestamp', 'desc'),
+    limit(limitCount)
   );
 
   return onSnapshot(q, (snapshot) => {
@@ -187,10 +264,10 @@ export const subscribeToMessages = (
       messages.push({ ...data, id: docSnap.id });
     });
     
-    // Sort in memory instead of on Firestore server to avoid index requirement
+    // Sort ascending for UI (after fetching desc batch)
     messages.sort((a, b) => {
-      const t1 = a.timestamp?.toMillis ? a.timestamp.toMillis() : (a.timestamp?.seconds ? a.timestamp.seconds * 1000 : Date.now() + 100);
-      const t2 = b.timestamp?.toMillis ? b.timestamp.toMillis() : (b.timestamp?.seconds ? b.timestamp.seconds * 1000 : Date.now() + 100);
+      const t1 = a.timestamp?.toMillis ? a.timestamp.toMillis() : (a.timestamp?.seconds ? a.timestamp.seconds * 1000 : Date.now());
+      const t2 = b.timestamp?.toMillis ? b.timestamp.toMillis() : (b.timestamp?.seconds ? b.timestamp.seconds * 1000 : Date.now());
       return t1 - t2;
     });
 
@@ -296,13 +373,17 @@ export const markAsViewed = async (messageId: string) => {
   const messageRef = doc(db, 'messages', messageId);
   await updateDoc(messageRef, { 
     viewed: true,
+    status: 'read',
     readAt: serverTimestamp() 
   });
 };
 
 export const markAsReceived = async (messageId: string) => {
   const messageRef = doc(db, 'messages', messageId);
-  await updateDoc(messageRef, { received: true });
+  await updateDoc(messageRef, { 
+    received: true,
+    status: 'delivered'
+  });
 };
 
 // Typing indicators
@@ -378,6 +459,38 @@ export const subscribeToSecretConversations = (userId: string, callback: (secret
   }, (error) => {
     console.warn('Snapshot error in subscribeToSecretConversations:', error.message);
   });
+};
+
+export const deleteMessageForEveryone = async (messageId: string) => {
+  try {
+    const msgRef = doc(db, 'messages', messageId);
+    await updateDoc(msgRef, {
+      isDeleted: true,
+      text: '🚫 This message was deleted',
+      type: 'text',
+      poll: deleteField(),
+      location: deleteField(),
+      reactions: deleteField(),
+      replyTo: deleteField(),
+      storyReply: deleteField(),
+      duration: deleteField(),
+      timer: deleteField(),
+      filter: deleteField(),
+    });
+  } catch (error) {
+    console.error('Failed to delete for everyone:', error);
+  }
+};
+
+export const deleteMessageForMe = async (messageId: string, userId: string) => {
+  try {
+    const msgRef = doc(db, 'messages', messageId);
+    await updateDoc(msgRef, {
+      deletedBy: arrayUnion(userId)
+    });
+  } catch (error) {
+    console.error('Failed to delete for me:', error);
+  }
 };
 
 export const deleteMessage = async (messageId: string) => {

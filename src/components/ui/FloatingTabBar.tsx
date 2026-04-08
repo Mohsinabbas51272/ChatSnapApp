@@ -4,7 +4,7 @@ import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MessageCircle, CircleDashed, Users, Gift, Settings as SettingsIcon } from 'lucide-react-native';
+import { MessageCircle, CircleDashed, Users, Gift, Settings as SettingsIcon, Phone } from 'lucide-react-native';
 import Animated, { FadeIn, FadeOut, Layout, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { isLightColor, getContrastText } from '../../services/colors';
 
@@ -28,6 +28,7 @@ const FloatingTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navig
       case 'Stories': return <CircleDashed size={size} color={color} />;
       case 'Contacts': return <Users size={size} color={color} fill={fill} />;
       case 'Earn': return <Gift size={size} color={color} />;
+      case 'Calls': return <Phone size={size} color={color} fill={fill} />;
       case 'Settings': return <SettingsIcon size={size} color={color} />;
       default: return null;
     }

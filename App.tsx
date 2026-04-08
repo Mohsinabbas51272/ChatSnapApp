@@ -1,6 +1,8 @@
 import "./global.css";
+import "react-native-gesture-handler";
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Provider, useSelector, useDispatch, useStore } from 'react-redux';
 import { store, RootState } from './src/store';
@@ -12,9 +14,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
 
 // Firebase imports
-import { doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, getDoc, updateDoc } from 'firebase/firestore';
 import { db, auth as firebaseAuth } from './src/services/firebaseConfig';
-import { requestNotificationPermissions, setupNotificationListeners } from './src/services/notifications';
+import { requestNotificationPermissions, setupNotificationListeners, getPushToken } from './src/services/notifications';
+import { updateUserStatus } from './src/services/status';
 
 // Screens
 import LoginScreen from './src/screens/LoginScreen';
@@ -23,6 +26,12 @@ import ProfileSetupScreen from './src/screens/ProfileSetupScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import CallScreen from './src/screens/CallScreen';
+import MediaGalleryScreen from './src/screens/MediaGalleryScreen';
+import PrivacyPolicyScreen from './src/screens/PrivacyPolicyScreen';
+import TermsOfServiceScreen from './src/screens/TermsOfServiceScreen';
+import WallpaperSettingsScreen from './src/screens/WallpaperSettingsScreen';
+import ThemeSettingsScreen from './src/screens/ThemeSettingsScreen';
 import PrivacySettingsScreen from './src/screens/PrivacySettingsScreen';
 import QRProfileScreen from './src/screens/QRProfileScreen';
 import QRScannerScreen from './src/screens/QRScannerScreen';
@@ -32,10 +41,11 @@ import SplashScreen from './src/screens/SplashScreen';
 import FindFriendsScreen from './src/screens/FindFriendsScreen';
 import AdminPanelScreen from './src/screens/AdminPanelScreen';
 import WalletScreen from './src/screens/WalletScreen';
+import AppLockScreen from './src/screens/AppLockScreen';
 import { RootStackParamList } from './src/types/navigation';
 
 LogBox.ignoreLogs(['expo-notifications: Android Push notifications', 'Non-serializable values']);
-
+import { subscribeToIncomingCalls } from './src/services/calls';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 /**
@@ -46,6 +56,7 @@ const BackgroundLogic = () => {
     const { isDarkMode } = useSelector((state: RootState) => state.theme);
     const { setColorScheme } = useColorScheme();
     const dispatch = useDispatch();
+    const navigation = useNavigation<any>();
 
     useEffect(() => {
         const init = async () => {
@@ -60,7 +71,21 @@ const BackgroundLogic = () => {
             } catch (e) {}
             
             const granted = await requestNotificationPermissions();
-            if (granted) setupNotificationListeners(() => {}, () => {});
+            if (granted) {
+                setupNotificationListeners(() => {}, () => {});
+                
+                // Get and save push token if user is logged in
+                if (firebaseAuth.currentUser) {
+                    const token = await getPushToken();
+                    if (token) {
+                        try {
+                            await updateDoc(doc(db, 'users', firebaseAuth.currentUser.uid), {
+                                pushToken: token
+                            });
+                        } catch (e) {}
+                    }
+                }
+            }
         };
         init();
 
@@ -96,15 +121,27 @@ const BackgroundLogic = () => {
 
     useEffect(() => {
         if (!auth?.uid) return;
-        const updateStatus = async (status: 'online' | 'offline') => {
-            try {
-                const userRef = doc(db, 'users', auth.uid!);
-                await setDoc(userRef, { status, lastSeen: serverTimestamp() }, { merge: true });
-            } catch (e: any) {}
+        const sub = AppState.addEventListener('change', (next) => {
+            updateUserStatus(auth.uid!, next === 'active' ? 'online' : 'offline');
+        });
+        updateUserStatus(auth.uid!, 'online');
+
+        // Incoming Call Listener
+        const unsubCalls = subscribeToIncomingCalls(auth.uid, (call) => {
+            navigation.navigate('Call', {
+                callId: call.id,
+                isIncoming: true,
+                partnerName: call.callerName,
+                partnerPhotoURL: null, // We'd ideally fetch this
+                type: call.type
+            });
+        });
+
+        return () => { 
+            sub.remove(); 
+            unsubCalls();
+            updateUserStatus(auth.uid!, 'offline'); 
         };
-        const sub = AppState.addEventListener('change', (next) => updateStatus(next === 'active' ? 'online' : 'offline'));
-        updateStatus('online');
-        return () => { sub.remove(); updateStatus('offline'); };
     }, [auth.uid]);
 
     return null;
@@ -117,6 +154,23 @@ const RootApp = () => {
     const auth = useSelector((state: RootState) => state.auth);
     const { primaryColor, isDarkMode } = useSelector((state: RootState) => state.theme);
     const [isSplashDone, setIsSplashDone] = useState(false);
+    const [isLocked, setIsLocked] = useState(false);
+
+    // Lock app when it goes to background
+    useEffect(() => {
+        if (!auth.uid || !auth.isAppLockEnabled) {
+            setIsLocked(false);
+            return;
+        }
+
+        const subscription = AppState.addEventListener('change', (nextAppState) => {
+            if (nextAppState === 'inactive' || nextAppState === 'background') {
+                setIsLocked(true);
+            }
+        });
+
+        return () => subscription.remove();
+    }, [auth.uid, auth.isAppLockEnabled]);
 
     const MyTheme = useMemo(() => ({
         dark: isDarkMode,
@@ -145,6 +199,9 @@ const RootApp = () => {
     return (
         <NavigationContainer theme={MyTheme as any}>
             <BackgroundLogic />
+            {isLocked && auth.isAppLockEnabled && (
+                <AppLockScreen onUnlock={() => setIsLocked(false)} />
+            )}
             <Stack.Navigator screenOptions={{ headerShown: false }}>
                 {!isSplashDone ? (
                     <Stack.Screen name="Splash" component={SplashScreen} />
@@ -167,6 +224,12 @@ const RootApp = () => {
                         <Stack.Screen name="QRScanner" component={QRScannerScreen} />
                         <Stack.Screen name="AdminPanel" component={AdminPanelScreen} />
                         <Stack.Screen name="Wallet" component={WalletScreen} />
+                        <Stack.Screen name="Call" component={CallScreen} options={{ animation: 'fade' }} />
+                        <Stack.Screen name="MediaGallery" component={MediaGalleryScreen} />
+                        <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+                        <Stack.Screen name="TermsOfService" component={TermsOfServiceScreen} />
+                        <Stack.Screen name="WallpaperSettings" component={WallpaperSettingsScreen} />
+                        <Stack.Screen name="ThemeSettings" component={ThemeSettingsScreen} />
                     </>
                 )}
             </Stack.Navigator>
@@ -176,10 +239,12 @@ const RootApp = () => {
 
 export default function App() {
     return (
-        <Provider store={store}>
-            <SafeAreaProvider>
-                <RootApp />
-            </SafeAreaProvider>
-        </Provider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+            <Provider store={store}>
+                <SafeAreaProvider>
+                    <RootApp />
+                </SafeAreaProvider>
+            </Provider>
+        </GestureHandlerRootView>
     );
 }

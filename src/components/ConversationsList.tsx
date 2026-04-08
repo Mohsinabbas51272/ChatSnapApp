@@ -3,7 +3,7 @@ import { View, Text, FlatList, TouchableOpacity, Image, ActivityIndicator, Statu
 import { useNavigation } from '@react-navigation/native';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
-import { MessageSquare, Camera, Lock, MessageCircle, Shield, Eye, EyeOff, Plus, Smile, Users } from 'lucide-react-native';
+import { MessageSquare, Camera, Lock, MessageCircle, Shield, Eye, EyeOff, Plus, Smile, Users, Pin } from 'lucide-react-native';
 import ShimmerPlaceholder from './ui/ShimmerPlaceholder';
 import { subscribeToConversations, subscribeToSecretConversations } from '../services/messaging';
 import {
@@ -57,6 +57,7 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
   const navigation = useNavigation<any>();
   const dispatch = useDispatch();
   const currentUser = useSelector((state: RootState) => state.auth);
+  const pinnedChats = currentUser.pinnedChats || [];
   const { primaryColor, isDarkMode } = useSelector((state: RootState) => state.theme);
   const { isTablet, getResponsiveContainerStyle } = useResponsive();
 
@@ -135,18 +136,52 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
     );
   };
 
-  const filteredConversations = useMemo(() => conversations.filter(conv => {
-    const title = conv.isGroup ? conv.group.name : (conv.user?.displayName || '');
-    const matchesSearch = title.toLowerCase().includes((searchQuery || '').toLowerCase());
-    if (!matchesSearch) return false;
+  const handlePinToggle = async (id: string, isPinned: boolean) => {
+    if (!currentUser.uid) return;
+    
+    try {
+      const userRef = doc(db, 'users', currentUser.uid);
+      if (isPinned) {
+        await updateDoc(userRef, { pinnedChats: arrayRemove(id) });
+        dispatch({ type: 'auth/setPinnedChats', payload: pinnedChats.filter(cid => cid !== id) });
+      } else {
+        await updateDoc(userRef, { pinnedChats: arrayUnion(id) });
+        dispatch({ type: 'auth/setPinnedChats', payload: [...pinnedChats, id] });
+      }
+    } catch (error) {
+      console.error('Pin toggle failed:', error);
+    }
+  };
 
-    const isSecret = !conv.isGroup && secretPartnerIds.includes(conv.partnerId);
+  const filteredConversations = useMemo(() => {
+    let base = conversations.filter(conv => {
+      if (viewMode === 'private') return !secretPartnerIds.includes(conv.partnerId) && !conv.isGroup;
+      if (viewMode === 'groups') return conv.isGroup;
+      if (viewMode === 'secret') return secretPartnerIds.includes(conv.partnerId);
+      return true;
+    });
 
-    if (viewMode === 'groups') return conv.isGroup;
-    if (viewMode === 'secret') return isSecret;
-    // Default to 'private': not group and not secret
-    return !conv.isGroup && !isSecret;
-  }), [conversations, searchQuery, secretPartnerIds, viewMode]);
+    if (searchQuery.trim()) {
+      base = base.filter(conv => 
+        (conv.user?.displayName || conv.group?.name || '').toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Sort: Pinned first, then by timestamp
+    return base.sort((a, b) => {
+      const idA = a.partnerId || a.group?.id;
+      const idB = b.partnerId || b.group?.id;
+      const isPinnedA = pinnedChats.includes(idA);
+      const isPinnedB = pinnedChats.includes(idB);
+
+      if (isPinnedA && !isPinnedB) return -1;
+      if (!isPinnedA && isPinnedB) return 1;
+
+      const timeA = a.lastMessage?.timestamp?.getTime?.() || 0;
+      const timeB = b.lastMessage?.timestamp?.getTime?.() || 0;
+      return timeB - timeA;
+    });
+  }, [conversations, searchQuery, viewMode, secretPartnerIds, pinnedChats]);
 
   useEffect(() => {
     if (!currentUser.uid) return;
@@ -244,10 +279,24 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
     };
   }, [currentUser.uid]);
 
-  const renderItem = useCallback(({ item, index }: { item: Conversation; index: number }) => (
+  const renderItem = useCallback(({ item, index }: { item: Conversation; index: number }) => {
+    const id = item.partnerId || item.group?.id;
+    const isPinned = pinnedChats.includes(id);
+
+    return (
     <Animated.View entering={FadeInLeft.delay(index * 50).duration(400)}>
       <TouchableOpacity 
         onPress={() => item.isGroup ? navigation.navigate('Chat', { group: item.group }) : navigation.navigate('Chat', { user: item.user })}
+        onLongPress={() => {
+          Alert.alert(
+            isPinned ? "Unpin Chat" : "Pin Chat",
+            `Do you want to ${isPinned ? 'unpin' : 'pin'} this conversation?`,
+            [
+              { text: "Cancel", style: "cancel" },
+              { text: isPinned ? "Unpin" : "Pin", onPress: () => handlePinToggle(id, isPinned) }
+            ]
+          );
+        }}
         className={`flex-row items-center px-4 py-4 rounded-2xl mx-2 mb-1`}
         style={{ 
           backgroundColor: item.unreadCount > 0 ? (isDarkMode ? 'rgba(155,168,255,0.1)' : 'rgba(155,168,255,0.05)') : 'transparent' 
@@ -308,10 +357,17 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
         </View>
         
         <View className="flex-1 ml-4">
-          <View className="flex-row justify-between items-baseline mb-1">
-            <Text className={`text-lg tracking-tight ${item.unreadCount > 0 ? 'font-bold' : 'font-semibold'}`} style={{ color: item.unreadCount > 0 ? textColor : (isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.8)') }}>
-              {item.isGroup ? item.group.name : item.user.displayName}
-            </Text>
+          <View className="flex-row justify-between items-center mb-1">
+            <View className="flex-row items-center flex-1 pr-2">
+              {isPinned && (
+                <View className="mr-1 mt-0.5 transform -rotate-45 w-4 h-4 items-center justify-center">
+                  <Pin size={12} color={primaryColor} fill={primaryColor} />
+                </View>
+              )}
+              <Text className={`text-lg tracking-tight flex-shrink ${item.unreadCount > 0 ? 'font-bold' : 'font-semibold'}`} numberOfLines={1} style={{ color: item.unreadCount > 0 ? textColor : (isDarkMode ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.8)') }}>
+                {item.isGroup ? item.group.name : item.user.displayName}
+              </Text>
+            </View>
             <Text 
               className={`text-[11px] tracking-tight ${item.unreadCount > 0 ? 'font-bold' : 'font-medium'}`}
               style={{ color: item.unreadCount > 0 ? primaryColor : subTextColor }}
@@ -344,7 +400,8 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
         </View>
       </TouchableOpacity>
     </Animated.View>
-  ), [navigation, primaryColor, secretPartnerIds, isDarkMode, surfaceHigh, textColor, subTextColor]);
+    );
+  }, [navigation, primaryColor, secretPartnerIds, isDarkMode, surfaceHigh, textColor, subTextColor, pinnedChats]);
 
   return (
     <View className="flex-1" style={{ backgroundColor: 'transparent' }}>
