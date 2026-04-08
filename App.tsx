@@ -40,6 +40,7 @@ import RegisterScreen from './src/screens/RegisterScreen';
 import SplashScreen from './src/screens/SplashScreen';
 import FindFriendsScreen from './src/screens/FindFriendsScreen';
 import AdminPanelScreen from './src/screens/AdminPanelScreen';
+import SupportScreen from './src/screens/SupportScreen';
 import WalletScreen from './src/screens/WalletScreen';
 import AppLockScreen from './src/screens/AppLockScreen';
 import { RootStackParamList } from './src/types/navigation';
@@ -220,6 +221,7 @@ const RootApp = () => {
                         <Stack.Screen name="FindFriends" component={FindFriendsScreen} />
                         <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen} />
                         <Stack.Screen name="Settings" component={SettingsScreen} />
+                        <Stack.Screen name="SupportRequest" component={SupportScreen} />
                         <Stack.Screen name="QRProfile" component={QRProfileScreen} />
                         <Stack.Screen name="QRScanner" component={QRScannerScreen} />
                         <Stack.Screen name="AdminPanel" component={AdminPanelScreen} />

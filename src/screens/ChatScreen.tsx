@@ -213,8 +213,25 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
       setKeyboardVisible(false);
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     });
-    return () => { showSub.remove(); hideSub.remove(); };
-  }, []);
+
+    const unsubscribeBlur = navigation.addListener('blur', () => {
+      Keyboard.dismiss();
+      setKeyboardVisible(false);
+    });
+
+    const unsubscribeBeforeRemove = navigation.addListener('beforeRemove', () => {
+      Keyboard.dismiss();
+      setKeyboardVisible(false);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+      unsubscribeBlur();
+      unsubscribeBeforeRemove();
+      Keyboard.dismiss();
+    };
+  }, [navigation]);
 
   // Mark received and viewed status
   useEffect(() => {

@@ -14,6 +14,7 @@ export type RootStackParamList = {
   FindFriends: undefined;
   PrivacySettings: undefined;
   Settings: undefined;
+  SupportRequest: undefined;
   QRProfile: undefined;
   QRScanner: undefined;
   AdminPanel: undefined;

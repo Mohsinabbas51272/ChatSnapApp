@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, FlatList, TouchableOpacity, StatusBar, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, FlatList, TouchableOpacity, StatusBar, ActivityIndicator, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Shield, Search, ArrowLeft, Phone, Mail, CheckCircle, Clock } from 'lucide-react-native';
+import { Shield, Search, ArrowLeft, Phone, Mail, CheckCircle, Clock, MessageCircle } from 'lucide-react-native';
 import { useSelector } from 'react-redux';
+import { listenAllSupportRequests, respondToSupportRequest, SupportRequest as SupportRequestType } from '../services/support';
 import { useNavigation } from '@react-navigation/native';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../services/firebaseConfig';
@@ -12,7 +13,7 @@ import { getPendingWithdrawals, fulfillWithdrawal, AdminWithdrawal } from '../se
 
 const AdminPanelScreen = () => {
     const { primaryColor, isDarkMode } = useSelector((state: RootState) => state.theme);
-    const [activeTab, setActiveTab] = useState<'users'|'withdrawals'>('users');
+    const [activeTab, setActiveTab] = useState<'users'|'withdrawals'|'support'>('users');
     
     // User Tab State
     const [searchQuery, setSearchQuery] = useState('');
@@ -23,6 +24,13 @@ const AdminPanelScreen = () => {
     const [withdrawals, setWithdrawals] = useState<AdminWithdrawal[]>([]);
     const [loadingWithdrawals, setLoadingWithdrawals] = useState(false);
     const [processingId, setProcessingId] = useState<string | null>(null);
+
+    // Support Tab State
+    const [supportRequests, setSupportRequests] = useState<SupportRequestType[]>([]);
+    const [loadingSupport, setLoadingSupport] = useState(false);
+    const [selectedSupport, setSelectedSupport] = useState<SupportRequestType | null>(null);
+    const [replyMessage, setReplyMessage] = useState('');
+    const [responseProcessingId, setResponseProcessingId] = useState<string | null>(null);
 
     const navigation = useNavigation<any>();
 
@@ -53,6 +61,18 @@ const AdminPanelScreen = () => {
         if (activeTab === 'withdrawals') {
            loadWithdrawals();
         }
+    }, [activeTab]);
+
+    useEffect(() => {
+        if (activeTab !== 'support') return;
+
+        setLoadingSupport(true);
+        const unsubscribe = listenAllSupportRequests((requests) => {
+            setSupportRequests(requests);
+            setLoadingSupport(false);
+        });
+
+        return () => unsubscribe();
     }, [activeTab]);
 
     const loadWithdrawals = async () => {
@@ -156,6 +176,58 @@ const AdminPanelScreen = () => {
         </View>
     );
 
+    const handleSendSupportResponse = async () => {
+        if (!selectedSupport) return;
+        if (!replyMessage.trim()) {
+            Alert.alert('Error', 'Please enter a response message.');
+            return;
+        }
+
+        setResponseProcessingId(selectedSupport.id);
+        try {
+            await respondToSupportRequest(selectedSupport.id, replyMessage.trim(), 'resolved');
+            Alert.alert('Response sent', 'Your reply has been saved and the user will be notified.');
+            setSelectedSupport(null);
+            setReplyMessage('');
+        } catch (error) {
+            console.error('Support response error', error);
+            Alert.alert('Error', 'Unable to send response. Please try again.');
+        } finally {
+            setResponseProcessingId(null);
+        }
+    };
+
+    const renderSupportRequest = ({ item }: { item: SupportRequestType }) => (
+        <View className="p-4 mb-3 rounded-2xl mx-5 border" style={{ backgroundColor: surfaceLow, borderColor: isDarkMode ? '#333' : '#E5E5EA' }}>
+            <View className="flex-row justify-between items-center mb-3">
+                <View className="flex-1 pr-3">
+                    <Text className="font-bold text-base" style={{ color: textColor }}>{item.title}</Text>
+                    <Text className="text-sm mt-1" style={{ color: subTextColor }}>{item.message}</Text>
+                </View>
+                <View className="rounded-full px-4 py-2 items-center justify-center" style={{ backgroundColor: item.status === 'open' ? '#2563eb' : item.status === 'in-progress' ? '#f59e0b' : item.status === 'resolved' ? '#10b981' : '#6b7280', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.12, shadowRadius: 12, elevation: 4 }}>
+                    <Text className="text-[11px] font-black uppercase" style={{ color: 'white', letterSpacing: 0.5 }}>{item.status.replace('-', ' ')}</Text>
+                </View>
+            </View>
+            <Text className="text-xs mb-1" style={{ color: subTextColor }}>Contact: {item.contact || item.phoneNumber || 'Not provided'}</Text>
+            {item.response ? (
+                <View className="rounded-2xl p-3 mt-3" style={{ backgroundColor: isDarkMode ? '#111827' : '#FFFFFF' }}>
+                    <Text className="text-xs font-bold mb-1" style={{ color: textColor }}>Reply</Text>
+                    <Text className="text-sm" style={{ color: subTextColor }}>{item.response}</Text>
+                </View>
+            ) : (
+                <Text className="text-sm mt-3" style={{ color: subTextColor }}>No reply sent yet.</Text>
+            )}
+            <TouchableOpacity
+                onPress={() => setSelectedSupport(item)}
+                className="mt-4 py-3 rounded-full flex-row justify-center items-center"
+                style={{ backgroundColor: primaryColor }}
+            >
+                <MessageCircle size={16} color="white" />
+                <Text className="ml-2 font-bold text-white">Reply</Text>
+            </TouchableOpacity>
+        </View>
+    );
+
     return (
         <ScreenBackground>
             <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
@@ -190,6 +262,13 @@ const AdminPanelScreen = () => {
                      style={{ backgroundColor: activeTab === 'withdrawals' ? primaryColor : surfaceLow }}
                    >
                      <Text className="font-bold" style={{ color: activeTab === 'withdrawals' ? 'white' : textColor }}>Withdrawals</Text>
+                   </TouchableOpacity>
+                   <TouchableOpacity 
+                     onPress={() => setActiveTab('support')}
+                     className="flex-1 py-3 items-center rounded-xl"
+                     style={{ backgroundColor: activeTab === 'support' ? primaryColor : surfaceLow }}
+                   >
+                     <Text className="font-bold" style={{ color: activeTab === 'support' ? 'white' : textColor }}>Customer Support</Text>
                    </TouchableOpacity>
                 </View>
 
@@ -227,7 +306,7 @@ const AdminPanelScreen = () => {
                          contentContainerStyle={{ paddingBottom: 40 }}
                      />
                    </>
-                ) : (
+                ) : activeTab === 'withdrawals' ? (
                    <>
                      <View className="px-5 mb-4 flex-row justify-between items-end">
                          <Text className="text-3xl font-black tracking-tighter" style={{ color: textColor }}>Requests</Text>
@@ -253,8 +332,75 @@ const AdminPanelScreen = () => {
                          />
                      )}
                    </>
+                ) : (
+                   <>
+                     <View className="px-5 mb-4 flex-row justify-between items-end">
+                         <Text className="text-3xl font-black tracking-tighter" style={{ color: textColor }}>Support</Text>
+                         <Text className="text-xs font-bold uppercase tracking-widest pb-1" style={{ color: primaryColor }}>
+                             {supportRequests.length} Tickets
+                         </Text>
+                     </View>
+
+                     {loadingSupport ? (
+                         <ActivityIndicator size="large" color={primaryColor} className="mt-10" />
+                     ) : (
+                         <FlatList 
+                             data={supportRequests}
+                             keyExtractor={(item) => item.id}
+                             renderItem={renderSupportRequest}
+                             showsVerticalScrollIndicator={false}
+                             contentContainerStyle={{ paddingBottom: 40 }}
+                             ListEmptyComponent={
+                               <View className="items-center justify-center mt-10">
+                                  <Text style={{ color: subTextColor }}>No support tickets yet.</Text>
+                               </View>
+                             }
+                         />
+                     )}
+                   </>
                 )}
             </SafeAreaView>
+
+            <Modal
+                animationType="slide"
+                transparent
+                visible={!!selectedSupport}
+                onRequestClose={() => setSelectedSupport(null)}
+            >
+                <TouchableOpacity
+                    className="flex-1 bg-black/70 items-center justify-center p-5"
+                    activeOpacity={1}
+                    onPress={() => setSelectedSupport(null)}
+                >
+                    <View className="w-full rounded-[30px] p-5" style={{ backgroundColor: isDarkMode ? '#0f111a' : '#FFFFFF' }}>
+                        <Text className="text-xl font-black mb-3" style={{ color: textColor }}>Reply to Support Ticket</Text>
+                        <Text className="text-sm mb-4" style={{ color: subTextColor }}>
+                            Respond directly to the user and mark the ticket solved.
+                        </Text>
+                        <TextInput
+                            value={replyMessage}
+                            onChangeText={setReplyMessage}
+                            placeholder="Enter your response"
+                            placeholderTextColor={subTextColor}
+                            multiline
+                            className="rounded-3xl p-4 min-h-[140px] text-base"
+                            style={{ backgroundColor: isDarkMode ? '#111827' : '#F7F8FD', color: textColor }}
+                        />
+                        <TouchableOpacity
+                            onPress={handleSendSupportResponse}
+                            disabled={responseProcessingId === selectedSupport?.id}
+                            className="mt-4 rounded-2xl py-4 items-center"
+                            style={{ backgroundColor: primaryColor }}
+                        >
+                            {responseProcessingId === selectedSupport?.id ? (
+                                <ActivityIndicator color="white" />
+                            ) : (
+                                <Text className="text-white font-bold">Send Response</Text>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
         </ScreenBackground>
     );
 };

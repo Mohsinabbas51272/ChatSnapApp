@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useEffect, useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, Image, ScrollView, StatusBar, Modal, Switch, TextInput, Alert, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ScrollView, StatusBar, Modal, Switch, TextInput, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout, setAppLock } from '../store/authSlice';
@@ -396,13 +396,9 @@ const SettingsScreen = () => {
                     <SettingItem
                         icon={HelpCircle}
                         title="Help & Support"
-                        value="FAQs and contact our team"
+                        value="Open complaint box and view replies"
                         color="#4963ff"
-                        onPress={() => {
-                            Linking.openURL('mailto:support@chatsnap.com?subject=ChatSnap Help & Support').catch(err => {
-                                Alert.alert("Error", "Could not open email app. Please email us at support@chatsnap.com");
-                            });
-                        }}
+                        onPress={() => navigation.navigate('SupportRequest')}
                     />
                     <TouchableOpacity 
                         className="py-4 items-center"
