@@ -69,7 +69,7 @@ const EarnScreen = ({ navigation }: any) => {
 
   return (
     <ScreenBackground>
-      <SafeAreaView edges={['top']} className="flex-1">
+      <View className="flex-1">
         
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
           <View style={getResponsiveContainerStyle()} className="px-4">
@@ -294,7 +294,7 @@ const EarnScreen = ({ navigation }: any) => {
 
           </View>
         </ScrollView>
-      </SafeAreaView>
+      </View>
     </ScreenBackground>
   );
 };

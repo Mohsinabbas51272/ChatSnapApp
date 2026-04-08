@@ -5,13 +5,15 @@ import { Audio } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Location from 'expo-location';
-import Animated, { SlideInDown, SlideOutDown, FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated, { SlideInDown, SlideOutDown, FadeIn, FadeOut, Layout } from 'react-native-reanimated';
 import { isLightColor, getContrastText } from '../../services/colors';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const EMOJIS = [
   '❤️', '😂', '🔥', '👍', '😮', '😢', '😍', '👏', '🙌', '🎉', '✨', '🤔', '😊', '😭', '🙏', '😎',
   '💖', '🤣', '💯', '👊', '🤯', '😡', '🥰', '🤝', '💪', '🎈', '🌟', '🙄', '😌', '😩', '🥺', '😏',
-  '🖤', '😅', '💥', '👌', '😴', '🤨', '😘', '✅', '🔥', '🎊', '🌈', '🧐', '😋', '💔', '😇', '👀'
+  '🖤', '😅', '💥', '👌', '😴', '🤨', '😘', '✅', '✨', '🎊', '🌈', '🧐', '😋', '💔', '😇', '👀'
 ];
 
 interface ChatInputProps {
@@ -44,8 +46,9 @@ const ChatInput: React.FC<ChatInputProps> = ({
   const [localText, setLocalText] = useState(inputText);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const insets = useSafeAreaInsets();
   
-  // Poll State
+  // Poll State (unchanged logic)
   const [showPollModal, setShowPollModal] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
   const [pollOptions, setPollOptions] = useState(['Yes', 'No']);
@@ -150,17 +153,6 @@ const ChatInput: React.FC<ChatInputProps> = ({
     syncToParent(text);
   };
 
-  const handleCreatePollMessage = () => {
-     if (!pollQuestion.trim()) return Alert.alert("Error", "Please enter a question.");
-     const validOptions = pollOptions.map(o => o.trim()).filter(o => o.length > 0);
-     if (validOptions.length < 2) return Alert.alert("Error", "Please provide at least 2 options.");
-     
-     onSend('poll', pollQuestion, undefined, { question: pollQuestion, options: validOptions });
-     setShowPollModal(false);
-     setPollQuestion('');
-     setPollOptions(['Yes', 'No']);
-  };
-
   const handleSendPress = () => {
     if (previewImage) {
       onSend('image', previewImage);
@@ -175,7 +167,18 @@ const ChatInput: React.FC<ChatInputProps> = ({
     }
   };
 
-  // --- Media Handlers ---
+  const handleCreatePollMessage = () => {
+     if (!pollQuestion.trim()) return Alert.alert("Error", "Please enter a question.");
+     const validOptions = pollOptions.map(o => o.trim()).filter(o => o.length > 0);
+     if (validOptions.length < 2) return Alert.alert("Error", "Please provide at least 2 options.");
+     
+     onSend('poll', pollQuestion, undefined, { question: pollQuestion, options: validOptions });
+     setShowPollModal(false);
+     setPollQuestion('');
+     setPollOptions(['Yes', 'No']);
+  };
+
+  // --- Attach Handlers ---
   const handlePickFromGallery = async () => {
     setShowAttachMenu(false);
     try {
@@ -257,147 +260,62 @@ const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   const textColor = isDarkMode ? '#FFFFFF' : '#1a1c1e';
-  const bgColor = isDarkMode ? '#000000' : '#f0f0fd';
-  const accentColor = isLightColor(primaryColor) && !isDarkMode ? '#000000' : primaryColor;
+  const subTextColor = isDarkMode ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)';
+  const accentColor = isLightColor(primaryColor) && !isDarkMode ? '#000000' : (isDarkMode ? '#FFFFFF' : primaryColor);
+  const inputBg = isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)';
+  const sendButtonColors = isDarkMode ? ['#FFFFFF', '#E0E0E0'] : [primaryColor, `${primaryColor}BD`];
+  const sendIconColor = isDarkMode ? '#000000' : getContrastText(primaryColor);
 
   return (
-    <View style={styles.container}>
-      {/* IMAGE PREVIEW */}
-      {previewImage && (
-        <Animated.View 
-          entering={SlideInDown.springify()} 
-          exiting={SlideOutDown}
-          style={[styles.previewContainer, { backgroundColor: isDarkMode ? '#0a0a0a' : '#FFFFFF', borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}
-        >
-          <RNImage source={{ uri: previewImage }} style={styles.previewImage} resizeMode="cover" />
-          <TouchableOpacity 
-            onPress={() => setPreviewImage(null)} 
-            style={[styles.previewClose, { backgroundColor: 'rgba(0,0,0,0.6)' }]}
-          >
-            <X size={16} color="#FFFFFF" />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            onPress={handleSendPress}
-            disabled={isSending}
-            style={[styles.previewSend, { backgroundColor: primaryColor }]}
-          >
-            <Send size={18} color={getContrastText(primaryColor)} fill={getContrastText(primaryColor)} />
-          </TouchableOpacity>
-        </Animated.View>
-      )}
-
-      {/* MAIN INPUT ROW */}
-      {!previewImage && (
-        <View style={styles.inputRow}>
-          {!isRecording ? (
-            <TouchableOpacity 
-              onPress={() => {
-                Keyboard.dismiss();
-                setShowEmojiPicker(false);
-                setShowAttachMenu(!showAttachMenu);
-              }}
-              style={[styles.iconButton, { backgroundColor: isDarkMode ? '#000000' : 'rgba(0,0,0,0.05)' }]}
-            >
-              <Paperclip size={22} color={showAttachMenu ? accentColor : (isDarkMode ? '#737580' : '#555')} />
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.iconButton}>
-               <Activity size={20} color={primaryColor} />
-            </View>
-          )}
-
-          <View style={[styles.inputWrapper, { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }]}>
-            <TextInput
-              placeholder={isRecording ? `Recording... ${recordingDuration}s` : "Type a message..."}
-              placeholderTextColor="#737580"
-              multiline
-              value={isRecording ? "" : localText}
-              onChangeText={handleTextChange}
-              onFocus={() => { setShowEmojiPicker(false); setShowAttachMenu(false); }}
-              editable={!isSending && !isRecording}
-              style={[styles.input, { color: textColor, opacity: isRecording ? 0.6 : 1 }]}
-            />
-            <TouchableOpacity 
-              onPress={() => {
-                Keyboard.dismiss();
-                setShowAttachMenu(false);
-                setShowEmojiPicker(!showEmojiPicker);
-              }}
-              style={{ paddingHorizontal: 8 }}
-            >
-               <Smile size={22} color={showEmojiPicker ? accentColor : "#737580"} />
-            </TouchableOpacity>
-          </View>
-
-          {localText.trim().length > 0 ? (
-            <TouchableOpacity 
-              onPress={handleSendPress}
-              disabled={isSending}
-              style={[styles.sendButton, { backgroundColor: isSending ? 'rgba(0,0,0,0.1)' : primaryColor }]}
-            >
-              <Send size={20} color={getContrastText(primaryColor)} fill={getContrastText(primaryColor)} />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity 
-                onLongPress={startRecording}
-                onPressOut={stopRecording}
-                style={[styles.sendButton, { backgroundColor: isRecording ? '#ff6e85' : (isDarkMode ? '#000000' : 'rgba(0,0,0,0.05)') }]}
-                activeOpacity={0.7}
-            >
-              <Mic size={22} color={isRecording ? 'white' : accentColor} />
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-
-      {/* ATTACHMENTS MENU */}
+    <View style={styles.outerContainer}>
+      {/* ATTACHMENTS MENU (Floating Above) */}
       {showAttachMenu && (
         <Animated.View 
           entering={SlideInDown.springify().damping(18)} 
           exiting={SlideOutDown.duration(200)}
-          style={[styles.attachMenu, { backgroundColor: isDarkMode ? '#0a0a0a' : '#FFFFFF' }]}
+          style={[styles.attachMenu, { backgroundColor: isDarkMode ? '#1a1c24' : '#FFFFFF' }]}
         >
           <View style={[styles.attachRow, { marginBottom: 16 }]}>
             <TouchableOpacity onPress={handlePickFromGallery} style={styles.attachItem}>
-              <View style={[styles.attachIcon, { backgroundColor: '#6C63FF20' }]}>  
-                <ImageIcon size={24} color="#6C63FF" />
+              <View style={[styles.attachIcon, { backgroundColor: '#3B82F615' }]}>  
+                <ImageIcon size={22} color="#3B82F6" />
               </View>
               <Text style={[styles.attachLabel, { color: textColor }]}>Gallery</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={handleTakePhoto} style={styles.attachItem}>
-              <View style={[styles.attachIcon, { backgroundColor: '#FF636320' }]}>
-                <Camera size={24} color="#FF6363" />
+              <View style={[styles.attachIcon, { backgroundColor: '#EF444415' }]}>
+                <Camera size={22} color="#EF4444" />
               </View>
               <Text style={[styles.attachLabel, { color: textColor }]}>Camera</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={handlePickDocument} style={styles.attachItem}>
-              <View style={[styles.attachIcon, { backgroundColor: '#4CAF5020' }]}>
-                <FileText size={24} color="#4CAF50" />
+              <View style={[styles.attachIcon, { backgroundColor: '#10B98115' }]}>
+                <FileText size={22} color="#10B981" />
               </View>
-              <Text style={[styles.attachLabel, { color: textColor }]}>Document</Text>
+              <Text style={[styles.attachLabel, { color: textColor }]}>Doc</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.attachRow}>
             <TouchableOpacity onPress={onOpenCamera} style={styles.attachItem}>
-              <View style={[styles.attachIcon, { backgroundColor: '#FF980020' }]}>
-                <Camera size={24} color="#FF9800" />
+              <View style={[styles.attachIcon, { backgroundColor: '#F59E0B15' }]}>
+                <Camera size={22} color="#F59E0B" />
               </View>
               <Text style={[styles.attachLabel, { color: textColor }]}>Snap</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={handleShareLocation} style={styles.attachItem}>
-              <View style={[styles.attachIcon, { backgroundColor: '#007AFF20' }]}>
-                <MapPin size={24} color="#007AFF" />
+              <View style={[styles.attachIcon, { backgroundColor: '#8B5CF615' }]}>
+                <MapPin size={22} color="#8B5CF6" />
               </View>
-              <Text style={[styles.attachLabel, { color: textColor }]}>Location</Text>
+              <Text style={[styles.attachLabel, { color: textColor }]}>Live</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={handleCreatePoll} style={styles.attachItem}>
-              <View style={[styles.attachIcon, { backgroundColor: '#E91E6320' }]}>
-                <BarChart3 size={24} color="#E91E63" />
+              <View style={[styles.attachIcon, { backgroundColor: '#EC489915' }]}>
+                <BarChart3 size={22} color="#EC4899" />
               </View>
               <Text style={[styles.attachLabel, { color: textColor }]}>Poll</Text>
             </TouchableOpacity>
@@ -405,92 +323,17 @@ const ChatInput: React.FC<ChatInputProps> = ({
         </Animated.View>
       )}
 
-      {/* POLL MODAL */}
-      <Modal visible={showPollModal} transparent animationType="fade">
-        <View className="flex-1 bg-black/80 items-center justify-center p-6">
-           <Animated.View 
-            entering={FadeIn}
-            exiting={FadeOut}
-            className="w-full rounded-[36px] p-6" 
-            style={{ backgroundColor: isDarkMode ? '#0a0a0a' : '#FFFFFF' }}
-           >
-              <View className="flex-row items-center justify-between mb-6">
-                <Text className="text-xl font-black uppercase tracking-widest" style={{ color: textColor }}>Create Poll</Text>
-                <TouchableOpacity onPress={() => setShowPollModal(false)} className="p-2">
-                  <X size={24} color={textColor} />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView showsVerticalScrollIndicator={false} className="max-h-[70%]">
-                <Text className="text-[10px] font-black uppercase mb-2 opacity-50 ml-1" style={{ color: textColor }}>Question</Text>
-                <TextInput
-                  placeholder="Ask something..."
-                  placeholderTextColor="#737580"
-                  value={pollQuestion}
-                  onChangeText={setPollQuestion}
-                  className="w-full py-4 px-6 rounded-2xl mb-6 text-lg font-bold"
-                  style={{ backgroundColor: isDarkMode ? '#000' : '#f5f5f5', color: textColor }}
-                />
-
-                <Text className="text-[10px] font-black uppercase mb-2 opacity-50 ml-1" style={{ color: textColor }}>Options</Text>
-                {pollOptions.map((opt, idx) => (
-                  <View key={idx} className="flex-row items-center mb-3">
-                    <TextInput
-                      placeholder={`Option ${idx + 1}`}
-                      placeholderTextColor="#737580"
-                      value={opt}
-                      onChangeText={(txt) => {
-                        const newOpts = [...pollOptions];
-                        newOpts[idx] = txt;
-                        setPollOptions(newOpts);
-                      }}
-                      className="flex-1 py-3 px-5 rounded-xl font-bold"
-                      style={{ backgroundColor: isDarkMode ? '#000' : '#f5f5f5', color: textColor }}
-                    />
-                    {pollOptions.length > 2 && (
-                      <TouchableOpacity 
-                        onPress={() => setPollOptions(pollOptions.filter((_, i) => i !== idx))}
-                        className="ml-2 p-2"
-                      >
-                        <Trash2 size={18} color="#ff4d4d" />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                ))}
-
-                {pollOptions.length < 5 && (
-                  <TouchableOpacity 
-                    onPress={() => setPollOptions([...pollOptions, ''])}
-                    className="flex-row items-center mt-2 py-3 px-4 rounded-xl border border-dashed border-outline-variant/30"
-                  >
-                    <Plus size={18} color={primaryColor} />
-                    <Text className="ml-2 font-black uppercase text-[11px] tracking-widest" style={{ color: primaryColor }}>Add Option</Text>
-                  </TouchableOpacity>
-                )}
-              </ScrollView>
-
-              <TouchableOpacity 
-                onPress={handleCreatePollMessage}
-                className="w-full py-4 rounded-2xl items-center mt-8"
-                style={{ backgroundColor: primaryColor }}
-              >
-                <Text className="text-white font-black uppercase tracking-[2px]">Launch Poll</Text>
-              </TouchableOpacity>
-           </Animated.View>
-        </View>
-      </Modal>
-
-      {/* EMOJI PICKER */}
+      {/* EMOJI PICKER (Floating Above) */}
       {showEmojiPicker && (
         <Animated.View 
           entering={SlideInDown} 
           exiting={SlideOutDown}
-          style={[styles.emojiPicker, { backgroundColor: isDarkMode ? '#000000' : '#FFFFFF' }]}
+          style={[styles.emojiPicker, { backgroundColor: isDarkMode ? '#1a1c24' : '#FFFFFF' }]}
         >
           <View style={styles.emojiHeader}>
-            <Text style={{ color: isDarkMode ? '#FFFFFF' : '#1a1c1e', fontWeight: '900', fontSize: 12 }}>EMOJIS</Text>
+            <Text style={{ color: textColor, fontWeight: '900', fontSize: 10, letterSpacing: 2 }}>EMOJI</Text>
              <TouchableOpacity onPress={() => setShowEmojiPicker(false)}>
-              <Text style={{ color: accentColor, fontWeight: 'bold' }}>Done</Text>
+              <Text style={{ color: accentColor, fontWeight: 'bold' }}>Close</Text>
             </TouchableOpacity>
           </View>
           <FlatList
@@ -509,142 +352,168 @@ const ChatInput: React.FC<ChatInputProps> = ({
           />
         </Animated.View>
       )}
+
+      {/* IMAGE PREVIEW (Sticky within Bar) */}
+      {previewImage && (
+        <Animated.View 
+          entering={FadeIn} 
+          exiting={FadeOut}
+          style={[styles.previewContainer, { backgroundColor: isDarkMode ? '#1a1c24' : '#FFFFFF', borderColor: isDarkMode ? 'rgba(0,0,0,0.5)' : '#EEE' }]}
+        >
+          <RNImage source={{ uri: previewImage }} style={styles.previewImage} resizeMode="cover" />
+          <TouchableOpacity 
+            onPress={() => setPreviewImage(null)} 
+            className="absolute top-2 left-2 w-8 h-8 rounded-full bg-black/60 items-center justify-center"
+          >
+            <X size={16} color="#FFFFFF" />
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
+      {/* MAIN INPUT BAR (Pill Style) */}
+      <View style={styles.inputRow}>
+        <TouchableOpacity 
+          onPress={() => {
+            Keyboard.dismiss();
+            setShowEmojiPicker(false);
+            setShowAttachMenu(!showAttachMenu);
+          }}
+          className="w-11 h-11 items-center justify-center rounded-2xl mr-2"
+          style={{ backgroundColor: showAttachMenu ? `${primaryColor}20` : inputBg }}
+        >
+          <Paperclip size={20} color={showAttachMenu ? accentColor : subTextColor} />
+        </TouchableOpacity>
+
+        <View style={[styles.inputContainer, { backgroundColor: inputBg }]}>
+          <TouchableOpacity onPress={() => {
+            Keyboard.dismiss();
+            setShowAttachMenu(false);
+            setShowEmojiPicker(!showEmojiPicker);
+          }} className="p-2">
+            <Smile size={20} color={showEmojiPicker ? accentColor : subTextColor} />
+          </TouchableOpacity>
+
+          <TextInput
+            placeholder={isRecording ? `0:${recordingDuration < 10 ? '0' : ''}${recordingDuration} Rec` : "Say something..."}
+            placeholderTextColor={subTextColor}
+            multiline
+            value={isRecording ? "" : localText}
+            onChangeText={handleTextChange}
+            onFocus={() => { setShowEmojiPicker(false); setShowAttachMenu(false); }}
+            editable={!isSending && !isRecording}
+            style={[styles.inputField, { color: textColor }]}
+          />
+        </View>
+
+        <TouchableOpacity 
+          onPress={localText.trim().length > 0 ? handleSendPress : undefined}
+          onLongPress={localText.trim().length === 0 ? startRecording : undefined}
+          onPressOut={localText.trim().length === 0 ? stopRecording : undefined}
+          disabled={isSending}
+          className="ml-2 overflow-hidden rounded-full"
+          activeOpacity={0.8}
+        >
+          <LinearGradient
+            colors={sendButtonColors}
+            style={styles.sendGradient}
+          >
+            {isSending ? (
+              <Activity size={18} color={sendIconColor} />
+            ) : localText.trim().length > 0 ? (
+              <Send size={18} color={sendIconColor} fill={sendIconColor} />
+            ) : (
+              <Mic size={20} color={isRecording ? '#ff4d4d' : sendIconColor} />
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    // Outer wrapper
+  outerContainer: {
+    width: '100%',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   inputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    alignItems: 'flex-end',
+    width: '100%',
   },
-  iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  inputWrapper: {
+  inputContainer: {
     flex: 1,
-    minHeight: 48,
-    borderRadius: 24,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    paddingVertical: 8,
+    minHeight: 46,
     maxHeight: 120,
-  },
-  sendButton: {
-    width: 48,
-    height: 48,
     borderRadius: 24,
+    paddingHorizontal: 4,
+  },
+  inputField: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    paddingVertical: 10,
+    paddingRight: 12,
+    lineHeight: 20,
+  },
+  sendGradient: {
+    width: 46,
+    height: 46,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
   },
-  // Attach Menu
   attachMenu: {
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    marginHorizontal: 16,
-    marginBottom: 8,
-    borderRadius: 28,
+    marginBottom: 12,
+    padding: 16,
+    borderRadius: 32,
+    width: '100%',
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
     elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
   },
   attachRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    alignItems: 'center',
   },
   attachItem: {
     alignItems: 'center',
-    justifyContent: 'center',
+    width: 60,
   },
   attachIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  attachLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  // Preview
-  previewContainer: {
-    marginHorizontal: 16,
-    marginVertical: 8,
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 1,
-    position: 'relative',
-  },
-  previewImage: {
-    width: '100%',
-    height: 250,
-    borderRadius: 24,
-  },
-  previewClose: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    width: 32,
-    height: 32,
+    width: 48,
+    height: 48,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 6,
   },
-  previewSend: {
-    position: 'absolute',
-    bottom: 12,
-    right: 12,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+  attachLabel: {
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    opacity: 0.7,
   },
-  // Emoji
   emojiPicker: {
-    position: 'absolute',
-    bottom: 80,
-    left: 16,
-    right: 16,
-    borderRadius: 32,
+    marginBottom: 12,
     padding: 16,
+    borderRadius: 32,
+    width: '100%',
+    height: 300,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.1,
     shadowRadius: 20,
-    elevation: 10,
-    zIndex: 100,
-    height: 300,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
   },
   emojiHeader: {
     flexDirection: 'row',
@@ -657,7 +526,19 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
+  },
+  previewContainer: {
+    width: 140,
+    height: 140,
+    borderRadius: 24,
+    marginBottom: 12,
+    overflow: 'hidden',
+    borderWidth: 2,
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
   }
 });
 

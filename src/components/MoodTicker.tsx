@@ -98,14 +98,15 @@ const MoodTicker = ({ friendIds }: { friendIds: string[] }) => {
   const currentMood = moods[currentIndex] || null;
 
   return (
-    <View style={[styles.container, { bottom: insets.bottom + 70 }]}>
+    <View style={[styles.container, { bottom: (insets.bottom > 0 ? insets.bottom : 20) + 70 }]}>
       <TouchableOpacity 
         onPress={() => setShowModal(true)}
         activeOpacity={0.8}
         style={[styles.tickerBar, { 
-          backgroundColor: isDarkMode ? 'rgba(25, 25, 25, 1)' : 'rgba(255, 255, 255, 1)', 
+          backgroundColor: isDarkMode ? 'rgba(25, 25, 25, 0.95)' : 'rgba(255, 255, 255, 0.95)', 
           borderWidth: 1,
-          borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'
+          borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+          borderRadius: 28,
         }]}
       >
         <View className="flex-row items-center flex-1 px-4">
@@ -139,7 +140,7 @@ const MoodTicker = ({ friendIds }: { friendIds: string[] }) => {
         </View>
       </TouchableOpacity>
 
-      {/* SHARE MOOD MODAL (Same as before but moved here) */}
+      {/* SHARE MOOD MODAL */}
       <Modal animationType="fade" transparent={true} visible={showModal} onRequestClose={() => setShowModal(false)}>
           <TouchableOpacity className="flex-1 bg-black/80 items-center justify-center p-6" activeOpacity={1} onPress={() => setShowModal(false)}>
               <Animated.View 
@@ -205,21 +206,27 @@ const MoodTicker = ({ friendIds }: { friendIds: string[] }) => {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    left: 20,
-    right: 20,
+    alignSelf: 'center',
+    width: '92%',
     zIndex: 9999,
-    borderRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    elevation: 15,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 10,
+      },
+    }),
   },
   tickerBar: {
     height: 56,
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
+    overflow: 'hidden',
   },
   pulseCircle: {
     width: 36,
@@ -230,7 +237,7 @@ const styles = StyleSheet.create({
   },
   moodText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '700',
     letterSpacing: -0.2,
   },
   placeholder: {

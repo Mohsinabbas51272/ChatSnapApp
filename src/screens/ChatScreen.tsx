@@ -74,7 +74,7 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Allow or prevent screenshots
-  ScreenCapture.usePreventScreenCapture(isSecret ? undefined : 'allow');
+  ScreenCapture.usePreventScreenCapture();
 
   // --- Effects ---
   useEffect(() => {
@@ -147,11 +147,14 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
   }, [chatPartner?.uid, group?.id, currentUser.uid, isGroup]);
 
   useEffect(() => {
-    const showSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => {
+    const showSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', (e) => {
       setKeyboardVisible(true);
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     });
-    const hideSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardVisible(false));
+    const hideSub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => {
+      setKeyboardVisible(false);
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+    });
     return () => { showSub.remove(); hideSub.remove(); };
   }, []);
 
@@ -328,8 +331,8 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
       />
 
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0} 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0} 
         style={{ flex: 1 }}
       >
         <View style={getResponsiveContainerStyle()} className="flex-1">
@@ -374,7 +377,7 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
               />
             )}
             className="flex-1 px-4 pt-6"
-            contentContainerStyle={{ paddingBottom: 40 }}
+            contentContainerStyle={{ paddingBottom: 100 }}
             showsVerticalScrollIndicator={false}
             onContentSizeChange={() => {
               if (filteredMessages.length > prevMessageCountRef.current) {
@@ -420,12 +423,11 @@ const ChatScreen = ({ route, navigation }: RootStackScreenProps<'Chat'>) => {
           )}
 
           <View 
-            className={`${isTablet ? 'rounded-t-3xl border-x border-t' : ''}`} 
             style={{ 
-              backgroundColor: isDarkMode ? `${surfaceLow}CC` : surfaceLow,
-              borderColor: isDarkMode ? 'rgba(255,255,255,0.05)' : (isLightColor(primaryColor) ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.1)'),
-              paddingBottom: keyboardVisible ? (Platform.OS === 'ios' ? 8 : 4) : (insets.bottom || 8),
-              paddingTop: 4
+              backgroundColor: 'transparent',
+              paddingBottom: keyboardVisible ? (Platform.OS === 'ios' ? 2 : 2) : (insets.bottom || 8),
+              paddingTop: 8,
+              position: 'relative'
             }}
           >
             {blockedByMe || blockedByPartner ? (

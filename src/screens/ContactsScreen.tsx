@@ -547,7 +547,6 @@ const ContactsScreen = ({ searchQuery = '' }: { searchQuery?: string }) => {
 
   return (
     <View className="flex-1" style={{ backgroundColor: 'transparent' }}>
-      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
       
       {loading ? (
         <View className="flex-1 px-6 py-6">

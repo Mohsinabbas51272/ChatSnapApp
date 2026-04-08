@@ -348,7 +348,6 @@ const ConversationsList = ({ searchQuery = '' }: { searchQuery?: string }) => {
 
   return (
     <View className="flex-1" style={{ backgroundColor: 'transparent' }}>
-      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
       
       {loading && conversations.length === 0 ? (
         <View className="flex-1 px-4 py-4">

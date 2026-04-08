@@ -28,7 +28,7 @@ const Tab = createBottomTabNavigator();
 
 import ScreenBackground from '../components/ui/ScreenBackground';
 
-const StoriesScreen = () => {
+const StoriesScreen = ({ friends }: { friends: string[] }) => {
   const { isTablet, getResponsiveContainerStyle } = useResponsive();
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(false);
@@ -43,15 +43,6 @@ const StoriesScreen = () => {
   const subTextColor = isDarkMode ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.5)';
   const surfaceLow = isDarkMode ? '#000000' : '#F0F2FA';
   const surfaceHigh = isDarkMode ? '#000000' : '#E8EAF6';
-  const [friends, setFriends] = useState<string[]>([]);
-  
-  useEffect(() => {
-    if (!user.uid) return;
-    const unsub = subscribeToFriends(user.uid, (friendIds: string[]) => {
-      setFriends(friendIds);
-    });
-    return unsub;
-  }, [user.uid]);
 
   const loadStories = useCallback(async () => {
     setLoading(true);
@@ -262,11 +253,8 @@ const StoriesScreen = () => {
               handleDeleteStory(story.id!);
             }
           }}
-          isPaused={isPaused}
         />
       )}
-
-      <MoodTicker friendIds={friends} />
     </View>
   );
 };
@@ -297,6 +285,15 @@ const HomeScreen = ({ route, navigation }: RootStackScreenProps<'Home'>) => {
     if (!authUser.uid) return;
     const unsub = subscribeToFriendRequests(authUser.uid, (requests) => {
       setRequestCount(requests.length);
+    });
+    return unsub;
+  }, [authUser.uid]);
+
+  const [friends, setFriends] = useState<string[]>([]);
+  useEffect(() => {
+    if (!authUser.uid) return;
+    const unsub = subscribeToFriends(authUser.uid, (friendIds: string[]) => {
+      setFriends(friendIds);
     });
     return unsub;
   }, [authUser.uid]);
@@ -358,7 +355,12 @@ const HomeScreen = ({ route, navigation }: RootStackScreenProps<'Home'>) => {
         )}
 
         <Tab.Navigator 
-          tabBar={(props) => <FloatingTabBar {...props} />}
+          tabBar={(props) => (
+            <>
+              {props.state.routes[props.state.index].name === 'Stories' && <MoodTicker friendIds={friends} />}
+              <FloatingTabBar {...props} />
+            </>
+          )}
           screenOptions={{
             headerShown: false,
             tabBarStyle: { display: 'none' }
@@ -379,7 +381,6 @@ const HomeScreen = ({ route, navigation }: RootStackScreenProps<'Home'>) => {
 
           <Tab.Screen 
             name="Stories" 
-            component={MemoizedStoriesScreen} 
             options={{
               tabBarIcon: ({ color, focused }) => (
                 <View style={[focused ? FOCUSED_ICON_STYLE : UNFOCUSED_ICON_STYLE, { backgroundColor: iconBgOnNav(focused) }]}>
@@ -387,7 +388,9 @@ const HomeScreen = ({ route, navigation }: RootStackScreenProps<'Home'>) => {
                 </View>
               ),
             }}
-          />
+          >
+            {(props) => <MemoizedStoriesScreen {...props} friends={friends} />}
+          </Tab.Screen>
 
           <Tab.Screen 
             name="Contacts" 

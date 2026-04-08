@@ -163,8 +163,7 @@ const SettingsScreen = () => {
 
     return (
         <ScreenBackground showBubbles={false}>
-            <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor="transparent" translucent />
-            <ScrollView showsVerticalScrollIndicator={false} className="flex-1 pt-8">
+            <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
                 <View style={getResponsiveContainerStyle()} className="px-5">
                 {/* Profile Section */}
                 <TouchableOpacity onPress={() => navigation.navigate('ProfileSetup')} className="items-center py-8">
